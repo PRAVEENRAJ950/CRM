@@ -1,22 +1,28 @@
-import { Routes, Route, Link } from "react-router-dom";
-import CustomerLogin from "./pages/CustomerLogin";
-import ManagerLogin from "./pages/ManagerLogin";
-import Register from "./pages/Register";
+import { Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import { getCurrentUser } from "./auth/fakeAuth";
 
-export default function App() {
+const PrivateRoute = ({ children }) => {
+  const user = getCurrentUser();
+  return user ? children : <Navigate to="/" />;
+};
+
+function App() {
   return (
-    <div style={{ padding: "20px" }}>
-      <nav>
-        <Link to="/customer">Customer Login</Link> |{" "}
-        <Link to="/manager">Manager Login</Link> |{" "}
-        <Link to="/register">Create Account</Link>
-      </nav>
+    <Routes>
+      <Route path="/" element={<Login />} />
 
-      <Routes>
-        <Route path="/customer" element={<CustomerLogin />} />
-        <Route path="/manager" element={<ManagerLogin />} />
-        <Route path="/register" element={<Register />} />
-      </Routes>
-    </div>
+      <Route
+        path="/dashboard"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+    </Routes>
   );
 }
+
+export default App;
