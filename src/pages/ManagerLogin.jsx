@@ -1,34 +1,52 @@
 import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { login } from "../auth/authService";
 
-export default function ManagerLogin() {
+const ManagerLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const navigate = useNavigate();
 
   const handleLogin = (e) => {
     e.preventDefault();
-    console.log("Manager Login:", { email, password });
+
+    const success = login(email, password, "manager");
+
+    if (success) {
+      navigate("/dashboard");
+    } else {
+      alert("Invalid Manager credentials");
+    }
   };
 
   return (
-    <form onSubmit={handleLogin}>
-      <h2>Manager Login</h2>
-      <input
-        type="email"
-        placeholder="Manager Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
-      <br />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
-      <br />
-      <button type="submit">Login</button>
-    </form>
+    <div className="login-container">
+      <form className="login-box" onSubmit={handleLogin}>
+        <h2>Manager Login</h2>
+
+        <input
+          type="email"
+          placeholder="Manager Email"
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+
+        <button type="submit">Login</button>
+
+        <p style={{ marginTop: "10px" }}>
+          <Link to="/customer-login">Customer Login</Link> |{" "}
+          <Link to="/create-account">Create Account</Link>
+        </p>
+      </form>
+    </div>
   );
-}
+};
+
+export default ManagerLogin;

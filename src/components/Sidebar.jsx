@@ -1,13 +1,15 @@
+import { Link } from "react-router-dom";
+
 const Sidebar = () => {
   return (
     <div className="sidebar">
       <h2 className="logo">CRM</h2>
       <ul>
-        <li className="active">Dashboard</li>
-        <li>Customers</li>
-        <li>Leads</li>
-        <li>Reports</li>
-        <li>Settings</li>
+        <li><Link to="/dashboard">Dashboard</Link></li>
+        <li><Link to="/customers">Customers</Link></li>
+        <li><Link to="/leads">Leads</Link></li>
+        <li><Link to="/reports">Reports</Link></li>
+        <li><Link to="/settings">Settings</Link></li>
       </ul>
     </div>
   );
