@@ -1,11 +1,35 @@
 const users = [
-  { email: "customer@test.com", password: "123456", role: "customer" },
-  { email: "manager@test.com", password: "123456", role: "manager" }
+  {
+    name: "Default Manager",
+    company: "CRM Corp",
+    email: "manager@test.com",
+    phone: "9999999999",
+    source: "Internal",
+    password: "123456",
+    role: "manager",
+  },
+  {
+    name: "Default customer",
+    company: "-",
+    email: "customer@test.com",
+    phone: "1111111111",
+    source: "Internal",
+    password: "123456",
+    role: "customer",
+  }
 ];
 
+export const register = (userData) => {
+  users.push(userData);
+  localStorage.setItem("users", JSON.stringify(users));
+  return true;
+};
+
 export const login = (email, password, role) => {
-  const user = users.find(
-    u => u.email === email && u.password === password && u.role === role
+  const storedUsers = JSON.parse(localStorage.getItem("users")) || users;
+
+  const user = storedUsers.find(
+    (u) => u.email === email && u.password === password && u.role === role
   );
 
   if (user) {
@@ -13,11 +37,6 @@ export const login = (email, password, role) => {
     return true;
   }
   return false;
-};
-
-export const register = (email, password, role) => {
-  users.push({ email, password, role });
-  return true;
 };
 
 export const logout = () => {

@@ -1,17 +1,21 @@
+/* =======================
+   GLOBAL RESET
+======================= */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
 body {
-  font-family: Arial, sans-serif;
+  background-color: #f4f6f8;
+  color: #1f2937;
 }
 
-form {
-  max-width: 300px;
-  margin-top: 20px;
-}
-
-input, select, button {
-  width: 100%;
-  padding: 8px;
-  margin: 5px 0;
-}
+/* =======================
+   LOGIN PAGES
+======================= */
 .login-container {
   height: 100vh;
   display: flex;
@@ -20,44 +24,63 @@ input, select, button {
 }
 
 .login-box {
-  background: white;
+  background: #ffffff;
   padding: 30px;
   width: 320px;
   border-radius: 10px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 
-.login-box input {
+.login-box h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.login-box input,
+.login-box select {
   width: 100%;
   padding: 10px;
-  margin: 10px 0;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
 }
 
 .login-box button {
   width: 100%;
   padding: 10px;
-  background: #2563eb;
+  background-color: #2563eb;
   color: white;
   border: none;
   border-radius: 6px;
-}
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: "Segoe UI", sans-serif;
+  cursor: pointer;
 }
 
-body {
-  background-color: #f4f6f8;
+.login-box button:hover {
+  background-color: #1d4ed8;
 }
 
+.login-box p {
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* =======================
+   LAYOUT
+======================= */
 .app-container {
   display: flex;
   height: 100vh;
 }
 
-/* Sidebar */
+.main-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* =======================
+   SIDEBAR
+======================= */
 .sidebar {
   width: 220px;
   background-color: #1e293b;
@@ -65,8 +88,9 @@ body {
   padding: 20px;
 }
 
-.logo {
+.sidebar .logo {
   text-align: center;
+  font-size: 22px;
   margin-bottom: 30px;
 }
 
@@ -75,24 +99,24 @@ body {
 }
 
 .sidebar ul li {
-  padding: 12px;
   margin-bottom: 10px;
-  cursor: pointer;
+}
+
+.sidebar ul li a {
+  display: block;
+  padding: 12px;
+  color: white;
+  text-decoration: none;
   border-radius: 6px;
 }
 
-.sidebar ul li:hover,
-.sidebar ul .active {
+.sidebar ul li a:hover {
   background-color: #334155;
 }
 
-/* Main Content */
-.main-content {
-  flex: 1;
-  padding: 20px;
-}
-
-/* Header */
+/* =======================
+   HEADER
+======================= */
 .header {
   display: flex;
   justify-content: space-between;
@@ -100,8 +124,12 @@ body {
   margin-bottom: 20px;
 }
 
+.header h1 {
+  font-size: 22px;
+}
+
 .add-btn {
-  padding: 10px 16px;
+  padding: 8px 14px;
   background-color: #2563eb;
   color: white;
   border: none;
@@ -113,16 +141,18 @@ body {
   background-color: #1d4ed8;
 }
 
-/* Cards */
+/* =======================
+   CARDS (Dashboard / Reports)
+======================= */
 .cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 15px;
-  margin-bottom: 30px;
+  margin-bottom: 25px;
 }
 
 .card {
-  background-color: white;
+  background: white;
   padding: 20px;
   border-radius: 10px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
@@ -130,17 +160,19 @@ body {
 
 .card h3 {
   color: #64748b;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .card p {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: bold;
 }
 
-/* Table */
+/* =======================
+   TABLES (Customers, Leads, Deals, Users)
+======================= */
 .table-container {
-  background-color: white;
+  background: white;
   padding: 20px;
   border-radius: 10px;
 }
@@ -153,15 +185,19 @@ table {
 
 table th,
 table td {
-  text-align: left;
   padding: 12px;
+  text-align: left;
   border-bottom: 1px solid #e5e7eb;
 }
 
 table th {
   color: #475569;
+  font-weight: 600;
 }
 
+/* =======================
+   STATUS COLORS
+======================= */
 .active-status {
   color: green;
   font-weight: bold;
@@ -172,3 +208,50 @@ table th {
   font-weight: bold;
 }
 
+/* =======================
+   ACTIVITIES / TASKS
+======================= */
+ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+ul li {
+  
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  border-left: 4px solid #2563eb;
+}
+
+/* =======================
+   SETTINGS PAGE
+======================= */
+.settings-group {
+  margin-bottom: 20px;
+}
+
+.settings-group p {
+  margin-top: 6px;
+  color: #475569;
+}
+
+/* =======================
+   RESPONSIVE (MOBILE)
+======================= */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .sidebar ul {
+    display: flex;
+    gap: 10px;
+  }
+}

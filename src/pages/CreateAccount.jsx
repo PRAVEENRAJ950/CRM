@@ -3,32 +3,86 @@ import { useNavigate } from "react-router-dom";
 import { register } from "../auth/authService";
 
 const CreateAccount = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("customer");
   const navigate = useNavigate();
 
-  const handleRegister = (e) => {
+  const [form, setForm] = useState({
+    name: "",
+    company: "",
+    email: "",
+    phone: "",
+    source: "Website",
+    password: "",
+    role: "customer",
+  });
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = (e) => {
     e.preventDefault();
-    register(email, password, role);
+    register(form);
     alert("Account Created Successfully");
-    navigate(role === "customer" ? "/customer-login" : "/manager-login");
+    navigate(
+      form.role === "manager" ? "/manager-login" : "/customer-login"
+    );
   };
 
   return (
     <div className="login-container">
-      <form className="login-box" onSubmit={handleRegister}>
+      <form className="login-box" onSubmit={handleSubmit}>
         <h2>Create Account</h2>
 
-        <select onChange={e => setRole(e.target.value)}>
+        <input
+          name="name"
+          placeholder="Full Name"
+          onChange={handleChange}
+          required
+        />
+
+        <input
+          name="company"
+          placeholder="Company Name"
+          onChange={handleChange}
+          required
+        />
+
+        <input
+          name="email"
+          type="email"
+          placeholder="Email"
+          onChange={handleChange}
+          required
+        />
+
+        <input
+          name="phone"
+          placeholder="Phone Number"
+          onChange={handleChange}
+          required
+        />
+
+        <select name="source" onChange={handleChange}>
+          <option>Website</option>
+          <option>Referral</option>
+          <option>Campaign</option>
+          <option>Social Media</option>
+        </select>
+
+        <select name="role" onChange={handleChange}>
           <option value="customer">Customer</option>
           <option value="manager">Manager</option>
         </select>
 
-        <input placeholder="Email" onChange={e => setEmail(e.target.value)} />
-        <input type="password" placeholder="Password" onChange={e => setPassword(e.target.value)} />
+        <input
+          name="password"
+          type="password"
+          placeholder="Password"
+          onChange={handleChange}
+          required
+        />
 
-        <button>Create</button>
+        <button type="submit">Create Account</button>
       </form>
     </div>
   );

@@ -1,18 +1,24 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 
+/* ===== AUTH PAGES ===== */
 import CustomerLogin from "./pages/CustomerLogin";
 import ManagerLogin from "./pages/ManagerLogin";
 import CreateAccount from "./pages/CreateAccount";
 
+/* ===== CRM PAGES ===== */
 import Dashboard from "./pages/Dashboard";
 import Customers from "./pages/Customers";
 import Leads from "./pages/Leads";
+import Deals from "./pages/Deals";
+import Activities from "./pages/Activities";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import Users from "./pages/Users";
 
+/* ===== AUTH SERVICE ===== */
 import { getUser } from "./auth/authService";
 
-/* 🔐 Protect dashboard & CRM pages */
+/* ===== PROTECTED ROUTE ===== */
 const PrivateRoute = ({ children }) => {
   const user = getUser();
   return user ? children : <Navigate to="/customer-login" replace />;
@@ -22,13 +28,15 @@ function App() {
   return (
     <Routes>
 
-      {/* ===== LOGIN PAGES ===== */}
-      <Route path="/" element={<Navigate to="/customer-login" />} />
+      {/* ===== DEFAULT ROUTE ===== */}
+      <Route path="/" element={<Navigate to="/customer-login" replace />} />
+
+      {/* ===== LOGIN ROUTES ===== */}
       <Route path="/customer-login" element={<CustomerLogin />} />
       <Route path="/manager-login" element={<ManagerLogin />} />
       <Route path="/create-account" element={<CreateAccount />} />
 
-      {/* ===== PROTECTED CRM AREA ===== */}
+      {/* ===== PROTECTED CRM ROUTES ===== */}
       <Route
         path="/dashboard"
         element={
@@ -57,6 +65,24 @@ function App() {
       />
 
       <Route
+        path="/deals"
+        element={
+          <PrivateRoute>
+            <Deals />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/activities"
+        element={
+          <PrivateRoute>
+            <Activities />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
         path="/reports"
         element={
           <PrivateRoute>
@@ -74,8 +100,17 @@ function App() {
         }
       />
 
+      <Route
+        path="/users"
+        element={
+          <PrivateRoute>
+            <Users />
+          </PrivateRoute>
+        }
+      />
+
       {/* ===== FALLBACK ===== */}
-      <Route path="*" element={<Navigate to="/customer-login" />} />
+      <Route path="*" element={<Navigate to="/customer-login" replace />} />
 
     </Routes>
   );
