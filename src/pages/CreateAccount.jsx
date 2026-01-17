@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { register } from "../auth/authService";
 
 const CreateAccount = () => {
   const navigate = useNavigate();
@@ -11,21 +10,52 @@ const CreateAccount = () => {
     email: "",
     phone: "",
     source: "Website",
-    password: "",
     role: "customer",
+    password: "",
   });
 
+  const [loading, setLoading] = useState(false);
+
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    register(form);
-    alert("Account Created Successfully");
-    navigate(
-      form.role === "manager" ? "/manager-login" : "/customer-login"
-    );
+    setLoading(true);
+
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form), // ✅ correct JSON
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alert("Account created successfully");
+
+        // Redirect based on role
+        if (form.role === "manager") {
+          navigate("/manager-login");
+        } else {
+          navigate("/customer-login");
+        }
+      } else {
+        alert(data.message || "Registration failed");
+      }
+    } catch (error) {
+      console.error("Register error:", error);
+      alert("Server error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,55 +64,65 @@ const CreateAccount = () => {
         <h2>Create Account</h2>
 
         <input
+          type="text"
           name="name"
           placeholder="Full Name"
+          value={form.name}
           onChange={handleChange}
           required
         />
 
         <input
+          type="text"
           name="company"
           placeholder="Company Name"
+          value={form.company}
           onChange={handleChange}
           required
         />
 
         <input
-          name="email"
           type="email"
+          name="email"
           placeholder="Email"
+          value={form.email}
           onChange={handleChange}
           required
         />
 
         <input
+          type="text"
           name="phone"
           placeholder="Phone Number"
+          value={form.phone}
           onChange={handleChange}
           required
         />
 
-        <select name="source" onChange={handleChange}>
-          <option>Website</option>
-          <option>Referral</option>
-          <option>Campaign</option>
-          <option>Social Media</option>
+        <select name="source" value={form.source} onChange={handleChange}>
+          <option value="Website">Website</option>
+          <option value="Referral">Referral</option>
+          <option value="Campaign">Campaign</option>
+          <option value="Social Media">Social Media</option>
         </select>
 
-        <select name="role" onChange={handleChange}>
+        <select name="role" value={form.role} onChange={handleChange}>
           <option value="customer">Customer</option>
           <option value="manager">Manager</option>
         </select>
 
         <input
-          name="password"
           type="password"
+          name="password"
           placeholder="Password"
+          value={form.password}
           onChange={handleChange}
           required
         />
 
-        <button type="submit">Create Account</button>
+        <button type="submit" disabled={loading}>
+          {loading ? "Creating..." : "Create Account"}
+        </button>
       </form>
     </div>
   );

@@ -1,21 +1,39 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { login } from "../auth/authService";
 
-const ManagerLogin = () => {
+const CustomerLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
-    const success = login(email, password, "manager");
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          role: "manager",
+        }),
+      });
 
-    if (success) {
-      navigate("/dashboard");
-    } else {
-      alert("Invalid Manager credentials");
+      const data = await res.json();
+
+      if (res.ok) {
+        // ✅ Save login data
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("token", data.token);
+
+        navigate("/dashboard");
+      } else {
+        alert(data.message || "Login failed");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Server error");
     }
   };
 
@@ -26,7 +44,8 @@ const ManagerLogin = () => {
 
         <input
           type="email"
-          placeholder="Manager Email"
+          placeholder="Email"
+          value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
         />
@@ -34,6 +53,7 @@ const ManagerLogin = () => {
         <input
           type="password"
           placeholder="Password"
+          value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
         />
@@ -41,7 +61,7 @@ const ManagerLogin = () => {
         <button type="submit">Login</button>
 
         <p style={{ marginTop: "10px" }}>
-          <Link to="/customer-login">Customer Login</Link> |{" "}
+          <Link to="/manager-login">Manager Login</Link> |{" "}
           <Link to="/create-account">Create Account</Link>
         </p>
       </form>
@@ -49,4 +69,4 @@ const ManagerLogin = () => {
   );
 };
 
-export default ManagerLogin;
+export default CustomerLogin;

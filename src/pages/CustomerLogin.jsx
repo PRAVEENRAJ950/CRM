@@ -1,18 +1,39 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { login } from "../auth/authService";
 
 const CustomerLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (login(email, password, "customer")) {
-      navigate("/dashboard");
-    } else {
-      alert("Invalid Customer credentials");
+
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          role: "customer",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        // ✅ Save login data
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("token", data.token);
+
+        navigate("/dashboard");
+      } else {
+        alert(data.message || "Login failed");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Server error");
     }
   };
 
@@ -21,15 +42,28 @@ const CustomerLogin = () => {
       <form className="login-box" onSubmit={handleLogin}>
         <h2>Customer Login</h2>
 
-        <input placeholder="Email" onChange={e => setEmail(e.target.value)} />
-        <input type="password" placeholder="Password" onChange={e => setPassword(e.target.value)} />
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
 
-        <button>Login</button>
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
 
-        <p>
-          <Link to="/create-account">Create Account</Link>|{" "}
-          <Link to="/manager-login">Manager Login</Link>
-          </p>
+        <button type="submit">Login</button>
+
+        <p style={{ marginTop: "10px" }}>
+          <Link to="/manager-login">Manager Login</Link> |{" "}
+          <Link to="/create-account">Create Account</Link>
+        </p>
       </form>
     </div>
   );
