@@ -1,24 +1,26 @@
+import React from "react"; 
+
 const DashboardCards = () => {
+ 
+  const items = [
+    { label: "Total Customers", value: "128" },
+    { label: "Open Leads", value: "34" },
+    { label: "Active Deals", value: "18" },
+    { label: "Activities Today", value: "9" },
+  ];
+
   return (
-    <div className="cards">
-      <div className="card">
-        <h3>Total Customers</h3>
-        <p>1,250</p>
-      </div>
-      <div className="card">
-        <h3>Active Leads</h3>
-        <p>320</p>
-      </div>
-      <div className="card">
-        <h3>Closed Deals</h3>
-        <p>85</p>
-      </div>
-      <div className="card">
-        <h3>Revenue</h3>
-        <p>₹4.5L</p>
-      </div>
+    <div className="cards-grid">
+      {items.map((item) => (
+        <div key={item.label} className="card">
+          <div className="card-title">{item.label}</div>
+          <div className="card-value">{item.value}</div>
+        </div>
+      ))}
     </div>
   );
 };
 
+
 export default DashboardCards;
+

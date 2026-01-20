@@ -1,31 +1,30 @@
-import Sidebar from "../components/Sidebar";
-import Header from "../components/Header";
+import React from "react"; 
 
 const Reports = () => {
   return (
-    <div className="app-container">
-      <Sidebar />
-      <div className="main-content">
-        <Header title="Reports" />
+    <div>
+      <h1 className="page-title">Reports</h1>
+      <p style={{ marginBottom: "1.5rem", color: "#6b7280", fontSize: "0.9rem" }}>
+        High-level analytics and performance insights will appear here.
+      </p>
 
-        <div className="cards">
-          <div className="card">
-            <h3>Sales Performance</h3>
-            <p>₹2.3L</p>
-          </div>
-          <div className="card">
-            <h3>Lead Conversion</h3>
-            <p>26%</p>
-          </div>
-          <div className="card">
-            <h3>Deals Closed</h3>
-            <p>85</p>
-          </div>
+      <div className="cards-grid">
+        <div className="card">
+          <div className="card-title">Conversion rate</div>
+          <div className="card-value">32%</div>
         </div>
-
+        <div className="card">
+          <div className="card-title">Average deal size</div>
+          <div className="card-value">$5.2k</div>
+        </div>
+        <div className="card">
+          <div className="card-title">Cycle length</div>
+          <div className="card-value">21 days</div>
+        </div>
       </div>
     </div>
   );
 };
 
 export default Reports;
+

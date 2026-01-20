@@ -1,72 +1,88 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { login } from "../auth/authService.js";
+
 
 const CustomerLogin = () => {
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+ 
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
+    setError("");
+    setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-          role: "customer",
-        }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        // ✅ Save login data
-        localStorage.setItem("user", JSON.stringify(data.user));
-        localStorage.setItem("token", data.token);
-
-        navigate("/dashboard");
-      } else {
-        alert(data.message || "Login failed");
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-      alert("Server error");
+     
+      await login({ email, password, role: "customer" });
+      
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.message || "Unable to login");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <form className="login-box" onSubmit={handleLogin}>
-        <h2>Customer Login</h2>
+    <div className="auth-container">
+      <div className="auth-card">
+        <div className="auth-title">Customer Login</div>
+        <div className="auth-subtitle">Sign in to access your CRM portal.</div>
 
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+        {error && <div className="error-banner">{error}</div>}
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <input
+              type="email"
+              className="form-input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
-        <button type="submit">Login</button>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <input
+              type="password"
+              className="form-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
 
-        <p style={{ marginTop: "10px" }}>
-          <Link to="/manager-login">Manager Login</Link> |{" "}
-          <Link to="/create-account">Create Account</Link>
+          <button className="btn btn-primary btn-full" type="submit" disabled={loading}>
+            {loading ? "Signing in..." : "Sign in"}
+          </button>
+        </form>
+
+        <p style={{ marginTop: "1rem" }} className="text-muted">
+          Manager?{" "}
+          <Link className="text-link" to="/manager-login">
+            Go to manager login
+          </Link>
         </p>
-      </form>
+
+        <p className="text-muted">
+          New user?{" "}
+          <Link className="text-link" to="/create-account">
+            Create an account
+          </Link>
+        </p>
+      </div>
     </div>
   );
 };
 
+
 export default CustomerLogin;
+

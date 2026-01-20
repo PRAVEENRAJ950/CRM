@@ -1,72 +1,84 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { login } from "../auth/authService.js";
 
-const CustomerLogin = () => {
+const ManagerLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  // Handle form submission
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
+    setError("");
+    setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-          role: "manager",
-        }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        // ✅ Save login data
-        localStorage.setItem("user", JSON.stringify(data.user));
-        localStorage.setItem("token", data.token);
-
-        navigate("/dashboard");
-      } else {
-        alert(data.message || "Login failed");
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-      alert("Server error");
+      // Attempt login with role "manager"
+      await login({ email, password, role: "manager" });
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.message || "Unable to login");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <form className="login-box" onSubmit={handleLogin}>
-        <h2>Manager Login</h2>
+    <div className="auth-container">
+      <div className="auth-card">
+        <div className="auth-title">Manager Login</div>
+        <div className="auth-subtitle">Sign in to manage customers, leads, and deals.</div>
 
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+        {error && <div className="error-banner">{error}</div>}
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <input
+              type="email"
+              className="form-input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
-        <button type="submit">Login</button>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <input
+              type="password"
+              className="form-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
 
-        <p style={{ marginTop: "10px" }}>
-          <Link to="/manager-login">Manager Login</Link> |{" "}
-          <Link to="/create-account">Create Account</Link>
+          <button className="btn btn-primary btn-full" type="submit" disabled={loading}>
+            {loading ? "Signing in..." : "Sign in"}
+          </button>
+        </form>
+
+        <p style={{ marginTop: "1rem" }} className="text-muted">
+          Customer?{" "}
+          <Link className="text-link" to="/customer-login">
+            Go to customer login
+          </Link>
         </p>
-      </form>
+
+        <p className="text-muted">
+          New user?{" "}
+          <Link className="text-link" to="/create-account">
+            Create an account
+          </Link>
+        </p>
+      </div>
     </div>
   );
 };
 
-export default CustomerLogin;
+export default ManagerLogin;
+

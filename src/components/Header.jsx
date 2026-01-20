@@ -1,22 +1,44 @@
-import { logout } from "../auth/authService";
-import { useNavigate } from "react-router-dom";
+import React from "react";
+import { useLocation } from "react-router-dom";
 
-const Header = ({ title = "CRM Dashboard" }) => {
-  const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();                
-    navigate("/customer-login");
-  };
+const TITLE_MAP = {
+  "/dashboard": "Dashboard",
+  "/customers": "Customers",
+  "/leads": "Leads",
+  "/deals": "Deals",
+  "/activities": "Activities",
+  "/reports": "Reports",
+  "/settings": "Settings",
+  "/users": "Users",
+};
+
+
+const Header = () => {
+  const location = useLocation(); 
+  const title = TITLE_MAP[location.pathname] || "CRM";
 
   return (
-    <div className="header">
-      <h1>{title}</h1>
-      <button className="add-btn" onClick={handleLogout}>
-        Logout
-      </button>
-    </div>
+    <header
+      style={{
+        height: "56px",
+        borderBottom: "1px solid #e5e7eb",
+        backgroundColor: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 1.5rem",
+      }}
+    >
+      {/* Current page title */}
+      <div style={{ fontSize: "1.1rem", fontWeight: 600 }}>{title}</div>
+
+      {/* Right side placeholder (could show user, notifications, etc.) */}
+      <div style={{ fontSize: "0.85rem", color: "#6b7280" }}>Logged in</div>
+    </header>
   );
 };
 
+
 export default Header;
+

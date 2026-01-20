@@ -1,43 +1,44 @@
-import Sidebar from "../components/Sidebar";
-import Header from "../components/Header";
+import React, { useEffect, useState } from "react"; 
+import CustomersTable from "../components/CustomersTable.jsx";
+
 
 const Customers = () => {
-  const customers = [
-    { name: "Arun Kumar", email: "arun@gmail.com", country: "India" },
-    { name: "John Smith", email: "john@gmail.com", country: "USA" },
-  ];
+  const [customers, setCustomers] = useState([]); 
+
+  useEffect(() => {
+    setCustomers([
+      {
+        id: "1",
+        name: "Alice Johnson",
+        company: "Acme Corp",
+        email: "alice@example.com",
+        phone: "+1 555 111 2222",
+        source: "Website",
+        role: "customer",
+      },
+      {
+        id: "2",
+        name: "Bob Smith",
+        company: "Globex",
+        email: "bob@example.com",
+        phone: "+1 555 333 4444",
+        source: "Referral",
+        role: "customer",
+      },
+    ]);
+  }, []);
 
   return (
-    <div className="app-container">
-      <Sidebar />
-      <div className="main-content">
-        <Header title="Customers" />
-
-        <div className="table-container">
-          <h2>Customer List</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Country</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customers.map((c, i) => (
-                <tr key={i}>
-                  <td>{c.name}</td>
-                  <td>{c.email}</td>
-                  <td>{c.country}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-      </div>
+    <div>
+      <h1 className="page-title">Customers</h1>
+      <p style={{ marginBottom: "1rem", color: "#6b7280", fontSize: "0.9rem" }}>
+        View and manage accounts using the CRM.
+      </p>
+      <CustomersTable customers={customers} />
     </div>
   );
 };
 
+
 export default Customers;
+

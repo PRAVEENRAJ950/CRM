@@ -1,39 +1,48 @@
-const CustomersTable = () => {
+import React from "react";
+
+const CustomersTable = ({ customers }) => {
   return (
-    <div className="table-container">
-      <h2>Recent Customers</h2>
+    <div className="table-wrapper">
       <table>
         <thead>
           <tr>
             <th>Name</th>
+            <th>Company</th>
             <th>Email</th>
-            <th>Status</th>
-            <th>Country</th>
+            <th>Phone</th>
+            <th>Source</th>
+            <th>Role</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>Arun Kumar</td>
-            <td>arun@gmail.com</td>
-            <td className="active-status">Active</td>
-            <td>India</td>
-          </tr>
-          <tr>
-            <td>John Smith</td>
-            <td>john@gmail.com</td>
-            <td className="inactive-status">Inactive</td>
-            <td>USA</td>
-          </tr>
-          <tr>
-            <td>Sneha</td>
-            <td>sneha@gmail.com</td>
-            <td className="active-status">Active</td>
-            <td>India</td>
-          </tr>
+          {customers.length === 0 && (
+            <tr>
+              <td colSpan="6" style={{ padding: "1rem", textAlign: "center" }}>
+                No customers found.
+              </td>
+            </tr>
+          )}
+          {customers.map((c) => (
+            <tr key={c.id || c.email}>
+              <td>{c.name}</td>
+              <td>{c.company}</td>
+              <td>{c.email}</td>
+              <td>{c.phone}</td>
+              <td>{c.source}</td>
+              <td>{c.role}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
   );
 };
 
+
+CustomersTable.defaultProps = {
+  customers: [],
+};
+
+
 export default CustomersTable;
+
