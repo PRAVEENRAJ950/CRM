@@ -1,97 +1,293 @@
-// routes/leadRoutes.js
-// CRUD routes for Leads
+/**
+ * Lead Management Routes
+ * Handles CRUD operations for leads
+ */
 
-import express from "express"; // Import Express router
-import Lead from "../models/Lead.js"; // Import Lead model
-import { protect } from "../middleware/authMiddleware.js"; // Import auth middleware
+import express from 'express';
+import Lead from '../models/Lead.js';
+import { authenticate } from '../middleware/authMiddleware.js';
+import { requireExecutive } from '../middleware/roleMiddleware.js';
 
-// Create an Express router instance
 const router = express.Router();
 
-// @route   GET /api/leads
-// @desc    Get all leads
-// @access  Protected
-router.get("/", protect, async (req, res) => {
+/**
+ * @route   GET /api/leads
+ * @desc    Get all leads (with filters)
+ * @access  Private - Executive+
+ */
+router.get('/', authenticate, requireExecutive, async (req, res) => {
   try {
-    // Fetch all leads from the database
-    const leads = await Lead.find().populate("assignedTo", "name email role");
-    res.json(leads);
+    const { status, assignedTo, source, search } = req.query;
+    const filter = {};
+
+    // Apply filters
+    if (status) filter.status = status;
+    if (assignedTo) filter.assignedTo = assignedTo;
+    if (source) filter.source = source;
+
+    // Search filter
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { company: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    // Sales Executives can only see their own leads
+    if (req.user.role === 'Sales Executive') {
+      filter.assignedTo = req.user._id;
+    }
+
+    const leads = await Lead.find(filter)
+      .populate('assignedTo', 'name email role')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: leads.length,
+      data: leads,
+    });
   } catch (error) {
-    console.error("Get leads error:", error);
-    res.status(500).json({ message: "Server error fetching leads" });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch leads',
+      error: error.message,
+    });
   }
 });
 
-// @route   POST /api/leads
-// @desc    Create a new lead
-// @access  Protected
-router.post("/", protect, async (req, res) => {
+/**
+ * @route   GET /api/leads/:id
+ * @desc    Get lead by ID
+ * @access  Private - Executive+
+ */
+router.get('/:id', authenticate, requireExecutive, async (req, res) => {
   try {
-    // Extract lead data from body
-    const { company, source, status, assignedTo } = req.body;
+    const lead = await Lead.findById(req.params.id).populate(
+      'assignedTo',
+      'name email role'
+    );
 
-    // Basic validation
-    if (!company || !source || !status) {
-      return res.status(400).json({ message: "Please provide all required fields" });
+    if (!lead) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lead not found',
+      });
     }
 
-    // Create the lead
+    // Check access
+    if (
+      req.user.role === 'Sales Executive' &&
+      lead.assignedTo?._id.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: lead,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch lead',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   POST /api/leads
+ * @desc    Create new lead
+ * @access  Private - Executive+
+ */
+router.post('/', authenticate, requireExecutive, async (req, res) => {
+  try {
+    const { name, company, email, phone, source, status, assignedTo, notes } =
+      req.body;
+
+    // Validation
+    if (!name || !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide name and email',
+      });
+    }
+
+    // Create lead
     const lead = await Lead.create({
+      name,
       company,
-      source,
-      status,
-      assignedTo: assignedTo || null,
+      email,
+      phone,
+      source: source || 'Website',
+      status: status || 'New',
+      assignedTo: assignedTo || req.user._id, // Default to current user
+      notes,
     });
 
-    res.status(201).json(lead);
-  } catch (error) {
-    console.error("Create lead error:", error);
-    res.status(500).json({ message: "Server error creating lead" });
-  }
-});
+    const populatedLead = await Lead.findById(lead._id).populate(
+      'assignedTo',
+      'name email role'
+    );
 
-// @route   PUT /api/leads/:id
-// @desc    Update a lead by ID
-// @access  Protected
-router.put("/:id", protect, async (req, res) => {
-  try {
-    // Find lead by ID and update with new data
-    const lead = await Lead.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+    res.status(201).json({
+      success: true,
+      message: 'Lead created successfully',
+      data: populatedLead,
     });
-
-    // If not found, return 404
-    if (!lead) {
-      return res.status(404).json({ message: "Lead not found" });
-    }
-
-    res.json(lead);
   } catch (error) {
-    console.error("Update lead error:", error);
-    res.status(500).json({ message: "Server error updating lead" });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create lead',
+      error: error.message,
+    });
   }
 });
 
-// @route   DELETE /api/leads/:id
-// @desc    Delete a lead by ID
-// @access  Protected
-router.delete("/:id", protect, async (req, res) => {
+/**
+ * @route   PUT /api/leads/:id
+ * @desc    Update lead
+ * @access  Private - Executive+
+ */
+router.put('/:id', authenticate, requireExecutive, async (req, res) => {
   try {
-    // Find lead by ID and delete
-    const lead = await Lead.findByIdAndDelete(req.params.id);
+    const lead = await Lead.findById(req.params.id);
 
-    // If not found, return 404
     if (!lead) {
-      return res.status(404).json({ message: "Lead not found" });
+      return res.status(404).json({
+        success: false,
+        message: 'Lead not found',
+      });
     }
 
-    res.json({ message: "Lead deleted successfully" });
+    // Check access
+    if (
+      req.user.role === 'Sales Executive' &&
+      lead.assignedTo?.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+    }
+
+    // Update fields
+    const { name, company, email, phone, source, status, assignedTo, notes } =
+      req.body;
+
+    if (name) lead.name = name;
+    if (company !== undefined) lead.company = company;
+    if (email) lead.email = email;
+    if (phone !== undefined) lead.phone = phone;
+    if (source) lead.source = source;
+    if (status) lead.status = status;
+    if (assignedTo) lead.assignedTo = assignedTo;
+    if (notes !== undefined) lead.notes = notes;
+
+    await lead.save();
+
+    const populatedLead = await Lead.findById(lead._id).populate(
+      'assignedTo',
+      'name email role'
+    );
+
+    res.json({
+      success: true,
+      message: 'Lead updated successfully',
+      data: populatedLead,
+    });
   } catch (error) {
-    console.error("Delete lead error:", error);
-    res.status(500).json({ message: "Server error deleting lead" });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update lead',
+      error: error.message,
+    });
   }
 });
 
-// Export the router as default export
+/**
+ * @route   DELETE /api/leads/:id
+ * @desc    Delete lead
+ * @access  Private - Executive+ (Manager/Admin)
+ */
+router.delete('/:id', authenticate, requireExecutive, async (req, res) => {
+  try {
+    const lead = await Lead.findById(req.params.id);
+
+    if (!lead) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lead not found',
+      });
+    }
+
+    // Only Manager/Admin can delete, or owner
+    const isManager = ['System Admin', 'Sales Manager'].includes(req.user.role);
+    const isOwner = lead.assignedTo?.toString() === req.user._id.toString();
+
+    if (!isManager && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only managers or lead owner can delete.',
+      });
+    }
+
+    await Lead.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Lead deleted successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete lead',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   POST /api/leads/:id/convert
+ * @desc    Convert lead to contact or deal
+ * @access  Private - Executive+
+ */
+router.post('/:id/convert', authenticate, requireExecutive, async (req, res) => {
+  try {
+    const { convertTo } = req.body; // 'contact' or 'deal'
+
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lead not found',
+      });
+    }
+
+    // Mark lead as converted
+    lead.convertedToContact = convertTo === 'contact';
+    lead.convertedToDeal = convertTo === 'deal';
+    lead.convertedDate = new Date();
+    lead.status = 'Qualified';
+    await lead.save();
+
+    res.json({
+      success: true,
+      message: `Lead converted to ${convertTo} successfully`,
+      data: lead,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to convert lead',
+      error: error.message,
+    });
+  }
+});
+
 export default router;
-

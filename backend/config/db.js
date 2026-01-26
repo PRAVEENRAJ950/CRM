@@ -1,25 +1,22 @@
-// config/db.js
-// MongoDB connection helper using Mongoose
+/**
+ * Database Configuration
+ * Handles MongoDB connection using Mongoose
+ */
 
-import mongoose from "mongoose"; // Import Mongoose for MongoDB ODM
+import mongoose from 'mongoose';
 
-// Function to connect to MongoDB using the URI defined in environment variables
+/**
+ * Connect to MongoDB database
+ * @returns {Promise<void>}
+ */
 const connectDB = async () => {
   try {
-    // Attempt to connect using MONGODB_URI from .env
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      // Optional connection options can be added here if needed
-    });
-
-    // Log successful connection with host information
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    // Log connection errors and exit process with failure code
-    console.error("MongoDB connection error:", error.message);
+    console.error(`❌ MongoDB Connection Error: ${error.message}`);
     process.exit(1);
   }
 };
 
-// Export the connection function as default export
 export default connectDB;
-

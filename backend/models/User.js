@@ -1,63 +1,104 @@
-// models/User.js
-// User model definition for CRM application
+/**
+ * User Model
+ * Defines user schema with role-based access control
+ * Roles: System Admin, Sales Manager, Sales Executive, Marketing Executive, Support Executive, Customer
+ */
 
-import mongoose from "mongoose"; // Import Mongoose to define schema and model
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
-// Define the User schema with required CRM fields
 const userSchema = new mongoose.Schema(
   {
-    // Full name of the user
     name: {
       type: String,
-      required: true,
+      required: [true, 'Name is required'],
       trim: true,
     },
-    // Company name associated with the user
-    company: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    // Unique email address used for login and contact
     email: {
       type: String,
-      required: true,
+      required: [true, 'Email is required'],
       unique: true,
-      trim: true,
       lowercase: true,
+      trim: true,
+      match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email'],
     },
-    // Phone number for contact
     phone: {
       type: String,
-      required: true,
       trim: true,
     },
-    // Lead source (e.g., website, referral, campaign)
-    source: {
+    company: {
       type: String,
-      required: true,
       trim: true,
     },
-    // Role for authorization (customer, manager, admin)
-    role: {
-      type: String,
-      enum: ["customer", "manager", "admin"],
-      default: "customer",
-    },
-    // Hashed password for authentication
     password: {
       type: String,
-      required: true,
-      minlength: 6,
+      required: [true, 'Password is required'],
+      minlength: [6, 'Password must be at least 6 characters'],
+    },
+    role: {
+      type: String,
+      enum: [
+        'System Admin',
+        'Sales Manager',
+        'Sales Executive',
+        'Marketing Executive',
+        'Support Executive',
+        'Customer',
+      ],
+      required: [true, 'Role is required'],
+      default: 'Customer',
+    },
+    status: {
+      type: String,
+      enum: ['Active', 'Inactive'],
+      default: 'Active',
+    },
+    // Additional fields for organization context
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+    },
+    // Permissions can be extended here
+    permissions: {
+      type: [String],
+      default: [],
     },
   },
   {
-    // Automatically manage createdAt and updatedAt timestamps
-    timestamps: true,
+    timestamps: true, // Adds createdAt and updatedAt
   }
 );
 
-// Create and export the User model
-const User = mongoose.model("User", userSchema);
-export default User;
+/**
+ * Hash password before saving
+ */
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) {
+    return next();
+  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
 
+/**
+ * Compare password method
+ * @param {string} candidatePassword - Password to compare
+ * @returns {Promise<boolean>}
+ */
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
+
+/**
+ * Remove password from JSON output
+ */
+userSchema.methods.toJSON = function () {
+  const userObject = this.toObject();
+  delete userObject.password;
+  return userObject;
+};
+
+const User = mongoose.model('User', userSchema);
+
+export default User;

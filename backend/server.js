@@ -1,69 +1,78 @@
-// server.js
-// Entry point for the CRM backend server using Express and MongoDB
+/**
+ * CRM Backend Server
+ * Main Express server setup with all routes and middleware
+ */
 
-import express from "express"; // Import Express for building the HTTP server
-import dotenv from "dotenv"; // Import dotenv to load environment variables
-import cors from "cors"; // Import CORS to allow cross-origin requests from the frontend
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import connectDB from './config/db.js';
 
-// Import database connection helper
-import connectDB from "./config/db.js";
+// Import routes
+import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import leadRoutes from './routes/leadRoutes.js';
+import dealRoutes from './routes/dealRoutes.js';
+import activityRoutes from './routes/activityRoutes.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
 
-// Import route modules
-import authRoutes from "./routes/authRoutes.js";
-import leadRoutes from "./routes/leadRoutes.js";
-import dealRoutes from "./routes/dealRoutes.js";
-import activityRoutes from "./routes/activityRoutes.js";
-
-// Load environment variables from .env file
+// Load environment variables
 dotenv.config();
 
-// Create Express application
+// Initialize Express app
 const app = express();
-
-// Enable CORS for all origins (for a real app, restrict this to known domains)
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
-
-// Enable JSON body parsing
-app.use(express.json());
 
 // Connect to MongoDB
 connectDB();
 
-// Basic health check route
-app.get("/", (req, res) => {
-  // Simple endpoint to confirm backend is running
-  res.json({ message: "CRM backend API is running" });
-});
+// Middleware
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Mount API routes
-app.use("/api/auth", authRoutes);
-app.use("/api/leads", leadRoutes);
-app.use("/api/deals", dealRoutes);
-app.use("/api/activities", activityRoutes);
-
-// Global error handling middleware
-app.use((err, req, res, next) => {
-  // Log the error for debugging on the server side
-  console.error("Global error handler:", err);
-
-  // Send a generic error response
-  res.status(err.statusCode || 500).json({
-    success: false,
-    message: err.message || "Server Error",
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'CRM API is running',
+    timestamp: new Date().toISOString(),
   });
 });
 
-// Define the port from environment variables or use default
-const PORT = process.env.PORT || 5000;
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/leads', leadRoutes);
+app.use('/api/deals', dealRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/reports', reportRoutes);
 
-// Start the HTTP server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+  });
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+  });
+});
+
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 CRM Server running on port ${PORT}`);
+  console.log(`📡 API available at http://localhost:${PORT}/api`);
+});

@@ -1,44 +1,82 @@
-// models/Lead.js
-// Lead model definition for CRM application
+/**
+ * Lead Model
+ * Manages potential customers and lead tracking
+ */
 
-import mongoose from "mongoose"; // Import Mongoose to define schema and model
+import mongoose from 'mongoose';
 
-// Define the Lead schema with basic CRM lead fields
 const leadSchema = new mongoose.Schema(
   {
-    // Company related to the lead
+    name: {
+      type: String,
+      required: [true, 'Lead name is required'],
+      trim: true,
+    },
     company: {
       type: String,
-      required: true,
       trim: true,
     },
-    // Lead source (e.g., website, referral)
+    email: {
+      type: String,
+      required: [true, 'Email is required'],
+      lowercase: true,
+      trim: true,
+      match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email'],
+    },
+    phone: {
+      type: String,
+      trim: true,
+    },
     source: {
       type: String,
-      required: true,
-      trim: true,
+      enum: ['Website', 'Referral', 'Campaign', 'Social Media', 'Cold Call', 'Other'],
+      default: 'Website',
     },
-    // Current status of the lead (e.g., new, contacted, qualified)
     status: {
       type: String,
-      required: true,
-      trim: true,
-      default: "new",
+      enum: ['New', 'Contacted', 'Qualified', 'Lost'],
+      default: 'New',
     },
-    // Reference to the user (manager or owner) assigned to this lead
+    // Assignment
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: false,
+      ref: 'User',
+    },
+    // Lead source details
+    campaign: {
+      type: String,
+      trim: true,
+    },
+    // Notes and additional info
+    notes: {
+      type: String,
+      trim: true,
+    },
+    // Conversion tracking
+    convertedToContact: {
+      type: Boolean,
+      default: false,
+    },
+    convertedToDeal: {
+      type: Boolean,
+      default: false,
+    },
+    convertedDate: Date,
+    // Organization context
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
     },
   },
   {
-    // Automatically manage createdAt and updatedAt timestamps
     timestamps: true,
   }
 );
 
-// Create and export the Lead model
-const Lead = mongoose.model("Lead", leadSchema);
-export default Lead;
+// Index for faster queries
+leadSchema.index({ assignedTo: 1, status: 1 });
+leadSchema.index({ organization: 1 });
 
+const Lead = mongoose.model('Lead', leadSchema);
+
+export default Lead;

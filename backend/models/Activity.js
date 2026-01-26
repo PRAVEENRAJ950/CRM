@@ -1,43 +1,79 @@
-// models/Activity.js
-// Activity model definition for CRM application
+/**
+ * Activity Model
+ * Manages tasks, calls, meetings, and follow-ups
+ */
 
-import mongoose from "mongoose"; // Import Mongoose to define schema and model
+import mongoose from 'mongoose';
 
-// Define the Activity schema with basic CRM activity fields
 const activitySchema = new mongoose.Schema(
   {
-    // Type of activity (e.g., call, email, meeting)
     type: {
       type: String,
-      required: true,
+      enum: ['Call', 'Meeting', 'Email', 'Task', 'Follow-up', 'Note'],
+      required: [true, 'Activity type is required'],
+    },
+    title: {
+      type: String,
+      required: [true, 'Activity title is required'],
       trim: true,
     },
-    // Description or notes of the activity
     description: {
       type: String,
-      required: true,
       trim: true,
     },
-    // Due date for the activity
     dueDate: {
       type: Date,
-      required: true,
+      required: [true, 'Due date is required'],
     },
-    // Current status of the activity (e.g., pending, completed)
+    completedDate: Date,
     status: {
       type: String,
-      required: true,
-      trim: true,
-      default: "pending",
+      enum: ['Pending', 'In Progress', 'Completed', 'Cancelled'],
+      default: 'Pending',
+    },
+    // Assignment
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    // Related entities
+    relatedTo: {
+      type: String,
+      enum: ['Lead', 'Deal', 'Contact', 'Account', 'None'],
+      default: 'None',
+    },
+    relatedId: {
+      type: mongoose.Schema.Types.ObjectId,
+    },
+    // Priority
+    priority: {
+      type: String,
+      enum: ['Low', 'Medium', 'High', 'Urgent'],
+      default: 'Medium',
+    },
+    // Reminder settings
+    reminder: {
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+      reminderDate: Date,
+    },
+    // Organization context
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
     },
   },
   {
-    // Automatically manage createdAt and updatedAt timestamps
     timestamps: true,
   }
 );
 
-// Create and export the Activity model
-const Activity = mongoose.model("Activity", activitySchema);
-export default Activity;
+// Index for efficient queries
+activitySchema.index({ assignedTo: 1, status: 1, dueDate: 1 });
+activitySchema.index({ organization: 1 });
 
+const Activity = mongoose.model('Activity', activitySchema);
+
+export default Activity;

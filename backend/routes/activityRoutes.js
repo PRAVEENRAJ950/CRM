@@ -1,97 +1,319 @@
-// routes/activityRoutes.js
-// CRUD routes for Activities
+/**
+ * Activity Management Routes
+ * Handles CRUD operations for activities (tasks, calls, meetings, etc.)
+ */
 
-import express from "express"; // Import Express router
-import Activity from "../models/Activity.js"; // Import Activity model
-import { protect } from "../middleware/authMiddleware.js"; // Import auth middleware
+import express from 'express';
+import Activity from '../models/Activity.js';
+import { authenticate } from '../middleware/authMiddleware.js';
+import { requireExecutive } from '../middleware/roleMiddleware.js';
 
-// Create an Express router instance
 const router = express.Router();
 
-// @route   GET /api/activities
-// @desc    Get all activities
-// @access  Protected
-router.get("/", protect, async (req, res) => {
+/**
+ * @route   GET /api/activities
+ * @desc    Get all activities (with filters)
+ * @access  Private - Executive+
+ */
+router.get('/', authenticate, requireExecutive, async (req, res) => {
   try {
-    // Fetch all activities from the database
-    const activities = await Activity.find();
-    res.json(activities);
+    const { type, status, assignedTo, relatedTo, priority, dueDate } = req.query;
+    const filter = {};
+
+    // Apply filters
+    if (type) filter.type = type;
+    if (status) filter.status = status;
+    if (assignedTo) filter.assignedTo = assignedTo;
+    if (relatedTo) filter.relatedTo = relatedTo;
+    if (priority) filter.priority = priority;
+
+    // Due date filter
+    if (dueDate) {
+      const date = new Date(dueDate);
+      filter.dueDate = {
+        $gte: new Date(date.setHours(0, 0, 0, 0)),
+        $lte: new Date(date.setHours(23, 59, 59, 999)),
+      };
+    }
+
+    // Sales Executives can only see their own activities
+    if (req.user.role === 'Sales Executive') {
+      filter.assignedTo = req.user._id;
+    }
+
+    const activities = await Activity.find(filter)
+      .populate('assignedTo', 'name email role')
+      .sort({ dueDate: 1, createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: activities.length,
+      data: activities,
+    });
   } catch (error) {
-    console.error("Get activities error:", error);
-    res.status(500).json({ message: "Server error fetching activities" });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch activities',
+      error: error.message,
+    });
   }
 });
 
-// @route   POST /api/activities
-// @desc    Create a new activity
-// @access  Protected
-router.post("/", protect, async (req, res) => {
+/**
+ * @route   GET /api/activities/:id
+ * @desc    Get activity by ID
+ * @access  Private - Executive+
+ */
+router.get('/:id', authenticate, requireExecutive, async (req, res) => {
   try {
-    // Extract activity data from body
-    const { type, description, dueDate, status } = req.body;
+    const activity = await Activity.findById(req.params.id).populate(
+      'assignedTo',
+      'name email role'
+    );
 
-    // Basic validation
-    if (!type || !description || !dueDate || !status) {
-      return res.status(400).json({ message: "Please provide all required fields" });
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        message: 'Activity not found',
+      });
     }
 
-    // Create the activity
-    const activity = await Activity.create({
+    // Check access
+    if (
+      req.user.role === 'Sales Executive' &&
+      activity.assignedTo?._id.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: activity,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch activity',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   POST /api/activities
+ * @desc    Create new activity
+ * @access  Private - Executive+
+ */
+router.post('/', authenticate, requireExecutive, async (req, res) => {
+  try {
+    const {
       type,
+      title,
       description,
       dueDate,
       status,
-    });
+      assignedTo,
+      relatedTo,
+      relatedId,
+      priority,
+      reminder,
+    } = req.body;
 
-    res.status(201).json(activity);
-  } catch (error) {
-    console.error("Create activity error:", error);
-    res.status(500).json({ message: "Server error creating activity" });
-  }
-});
-
-// @route   PUT /api/activities/:id
-// @desc    Update an activity by ID
-// @access  Protected
-router.put("/:id", protect, async (req, res) => {
-  try {
-    // Find activity by ID and update with new data
-    const activity = await Activity.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-
-    // If not found, return 404
-    if (!activity) {
-      return res.status(404).json({ message: "Activity not found" });
+    // Validation
+    if (!type || !title || !dueDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide type, title, and due date',
+      });
     }
 
-    res.json(activity);
+    // Create activity
+    const activity = await Activity.create({
+      type,
+      title,
+      description,
+      dueDate,
+      status: status || 'Pending',
+      assignedTo: assignedTo || req.user._id,
+      relatedTo: relatedTo || 'None',
+      relatedId,
+      priority: priority || 'Medium',
+      reminder: reminder || { enabled: false },
+    });
+
+    const populatedActivity = await Activity.findById(activity._id).populate(
+      'assignedTo',
+      'name email role'
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Activity created successfully',
+      data: populatedActivity,
+    });
   } catch (error) {
-    console.error("Update activity error:", error);
-    res.status(500).json({ message: "Server error updating activity" });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create activity',
+      error: error.message,
+    });
   }
 });
 
-// @route   DELETE /api/activities/:id
-// @desc    Delete an activity by ID
-// @access  Protected
-router.delete("/:id", protect, async (req, res) => {
+/**
+ * @route   PUT /api/activities/:id
+ * @desc    Update activity
+ * @access  Private - Executive+
+ */
+router.put('/:id', authenticate, requireExecutive, async (req, res) => {
   try {
-    // Find activity by ID and delete
-    const activity = await Activity.findByIdAndDelete(req.params.id);
+    const activity = await Activity.findById(req.params.id);
 
-    // If not found, return 404
     if (!activity) {
-      return res.status(404).json({ message: "Activity not found" });
+      return res.status(404).json({
+        success: false,
+        message: 'Activity not found',
+      });
     }
 
-    res.json({ message: "Activity deleted successfully" });
+    // Check access
+    if (
+      req.user.role === 'Sales Executive' &&
+      activity.assignedTo?.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+    }
+
+    // Update fields
+    const {
+      type,
+      title,
+      description,
+      dueDate,
+      completedDate,
+      status,
+      assignedTo,
+      relatedTo,
+      relatedId,
+      priority,
+      reminder,
+    } = req.body;
+
+    if (type) activity.type = type;
+    if (title) activity.title = title;
+    if (description !== undefined) activity.description = description;
+    if (dueDate) activity.dueDate = dueDate;
+    if (completedDate !== undefined) activity.completedDate = completedDate;
+    if (status) activity.status = status;
+    if (assignedTo) activity.assignedTo = assignedTo;
+    if (relatedTo) activity.relatedTo = relatedTo;
+    if (relatedId !== undefined) activity.relatedId = relatedId;
+    if (priority) activity.priority = priority;
+    if (reminder) activity.reminder = reminder;
+
+    await activity.save();
+
+    const populatedActivity = await Activity.findById(activity._id).populate(
+      'assignedTo',
+      'name email role'
+    );
+
+    res.json({
+      success: true,
+      message: 'Activity updated successfully',
+      data: populatedActivity,
+    });
   } catch (error) {
-    console.error("Delete activity error:", error);
-    res.status(500).json({ message: "Server error deleting activity" });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update activity',
+      error: error.message,
+    });
   }
 });
 
-// Export the router as default export
+/**
+ * @route   DELETE /api/activities/:id
+ * @desc    Delete activity
+ * @access  Private - Executive+
+ */
+router.delete('/:id', authenticate, requireExecutive, async (req, res) => {
+  try {
+    const activity = await Activity.findById(req.params.id);
+
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        message: 'Activity not found',
+      });
+    }
+
+    // Check access
+    const isManager = ['System Admin', 'Sales Manager'].includes(req.user.role);
+    const isOwner = activity.assignedTo?.toString() === req.user._id.toString();
+
+    if (!isManager && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+    }
+
+    await Activity.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Activity deleted successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete activity',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   GET /api/activities/upcoming/reminders
+ * @desc    Get upcoming activities with reminders
+ * @access  Private - Executive+
+ */
+router.get('/upcoming/reminders', authenticate, requireExecutive, async (req, res) => {
+  try {
+    const filter = {
+      status: { $in: ['Pending', 'In Progress'] },
+      'reminder.enabled': true,
+      reminderDate: { $lte: new Date() },
+    };
+
+    // Sales Executives can only see their own activities
+    if (req.user.role === 'Sales Executive') {
+      filter.assignedTo = req.user._id;
+    }
+
+    const activities = await Activity.find(filter)
+      .populate('assignedTo', 'name email role')
+      .sort({ reminderDate: 1 });
+
+    res.json({
+      success: true,
+      count: activities.length,
+      data: activities,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch reminders',
+      error: error.message,
+    });
+  }
+});
+
 export default router;
-

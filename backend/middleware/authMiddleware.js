@@ -1,54 +1,89 @@
-// middleware/authMiddleware.js
-// JWT authentication middleware to protect routes
+/**
+ * Authentication Middleware
+ * Verifies JWT tokens and attaches user to request
+ */
 
-import jwt from "jsonwebtoken"; // Import JWT to verify tokens
-import User from "../models/User.js"; // Import User model to attach user info to the request
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
-// Middleware to validate JWT and attach user to the request object
-export const protect = async (req, res, next) => {
+/**
+ * Middleware to verify JWT token
+ * Attaches user object to req.user if token is valid
+ */
+export const authenticate = async (req, res, next) => {
   try {
-    // Get the Authorization header
-    const authHeader = req.headers.authorization;
+    // Get token from header
+    const token = req.headers.authorization?.split(' ')[1]; // Bearer <token>
 
-    // Check if token is present and properly formatted
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Not authorized, no token" });
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required. No token provided.',
+      });
     }
 
-    // Extract the token part after "Bearer "
-    const token = authHeader.split(" ")[1];
-
-    // Verify the token using the secret
+    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Find the user by ID from the token payload and exclude password
-    req.user = await User.findById(decoded.id).select("-password");
+    // Get user from database
+    const user = await User.findById(decoded.userId).select('-password');
 
-    // If user not found, deny access
-    if (!req.user) {
-      return res.status(401).json({ message: "Not authorized, user not found" });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found. Token invalid.',
+      });
     }
 
-    // Proceed to next middleware or route handler
+    // Check if user is active
+    if (user.status !== 'Active') {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is inactive. Please contact administrator.',
+      });
+    }
+
+    // Attach user to request
+    req.user = user;
     next();
   } catch (error) {
-    console.error("Auth middleware error:", error);
-    return res.status(401).json({ message: "Not authorized, token failed" });
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token.',
+      });
+    }
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token expired. Please login again.',
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Authentication error.',
+      error: error.message,
+    });
   }
 };
 
-// Middleware to restrict access based on user role
-export const authorizeRoles = (...roles) => {
-  // Return a middleware function that checks user role
-  return (req, res, next) => {
-    // Ensure user is attached and has a role
-    if (!req.user || !roles.includes(req.user.role)) {
-      return res
-        .status(403)
-        .json({ message: "Forbidden: You do not have permission" });
+/**
+ * Optional authentication - doesn't fail if no token
+ * Useful for public endpoints that show different data if authenticated
+ */
+export const optionalAuth = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.userId).select('-password');
+      if (user && user.status === 'Active') {
+        req.user = user;
+      }
     }
-    // Proceed if role is allowed
     next();
-  };
+  } catch (error) {
+    // Continue without authentication
+    next();
+  }
 };
-

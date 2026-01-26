@@ -1,96 +1,320 @@
-// routes/dealRoutes.js
-// CRUD routes for Deals
+/**
+ * Deal/Opportunity Management Routes
+ * Handles CRUD operations for deals
+ */
 
-import express from "express"; // Import Express router
-import Deal from "../models/Deal.js"; // Import Deal model
-import { protect } from "../middleware/authMiddleware.js"; // Import auth middleware
+import express from 'express';
+import Deal from '../models/Deal.js';
+import { authenticate } from '../middleware/authMiddleware.js';
+import { requireExecutive } from '../middleware/roleMiddleware.js';
 
-// Create an Express router instance
 const router = express.Router();
 
-// @route   GET /api/deals
-// @desc    Get all deals
-// @access  Protected
-router.get("/", protect, async (req, res) => {
+/**
+ * @route   GET /api/deals
+ * @desc    Get all deals (with filters)
+ * @access  Private - Executive+
+ */
+router.get('/', authenticate, requireExecutive, async (req, res) => {
   try {
-    // Fetch all deals from the database
-    const deals = await Deal.find();
-    res.json(deals);
+    const { stage, assignedTo, search } = req.query;
+    const filter = {};
+
+    // Apply filters
+    if (stage) filter.stage = stage;
+    if (assignedTo) filter.assignedTo = assignedTo;
+
+    // Search filter
+    if (search) {
+      filter.$or = [
+        { dealName: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    // Sales Executives can only see their own deals
+    if (req.user.role === 'Sales Executive') {
+      filter.assignedTo = req.user._id;
+    }
+
+    const deals = await Deal.find(filter)
+      .populate('assignedTo', 'name email role')
+      .populate('contact', 'firstName lastName email')
+      .populate('account', 'name industry')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: deals.length,
+      data: deals,
+    });
   } catch (error) {
-    console.error("Get deals error:", error);
-    res.status(500).json({ message: "Server error fetching deals" });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch deals',
+      error: error.message,
+    });
   }
 });
 
-// @route   POST /api/deals
-// @desc    Create a new deal
-// @access  Protected
-router.post("/", protect, async (req, res) => {
+/**
+ * @route   GET /api/deals/:id
+ * @desc    Get deal by ID
+ * @access  Private - Executive+
+ */
+router.get('/:id', authenticate, requireExecutive, async (req, res) => {
   try {
-    // Extract deal data from body
-    const { dealName, stage, value } = req.body;
+    const deal = await Deal.findById(req.params.id)
+      .populate('assignedTo', 'name email role')
+      .populate('contact', 'firstName lastName email phone')
+      .populate('account', 'name industry');
 
-    // Basic validation
-    if (!dealName || !stage || value === undefined) {
-      return res.status(400).json({ message: "Please provide all required fields" });
+    if (!deal) {
+      return res.status(404).json({
+        success: false,
+        message: 'Deal not found',
+      });
     }
 
-    // Create the deal
-    const deal = await Deal.create({
+    // Check access
+    if (
+      req.user.role === 'Sales Executive' &&
+      deal.assignedTo?._id.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: deal,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch deal',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   POST /api/deals
+ * @desc    Create new deal
+ * @access  Private - Executive+
+ */
+router.post('/', authenticate, requireExecutive, async (req, res) => {
+  try {
+    const {
       dealName,
       stage,
       value,
-    });
+      expectedCloseDate,
+      contact,
+      account,
+      assignedTo,
+      description,
+      probability,
+      currency,
+    } = req.body;
 
-    res.status(201).json(deal);
-  } catch (error) {
-    console.error("Create deal error:", error);
-    res.status(500).json({ message: "Server error creating deal" });
-  }
-});
-
-// @route   PUT /api/deals/:id
-// @desc    Update a deal by ID
-// @access  Protected
-router.put("/:id", protect, async (req, res) => {
-  try {
-    // Find deal by ID and update with new data
-    const deal = await Deal.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-
-    // If not found, return 404
-    if (!deal) {
-      return res.status(404).json({ message: "Deal not found" });
+    // Validation
+    if (!dealName || !value || !expectedCloseDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide deal name, value, and expected close date',
+      });
     }
 
-    res.json(deal);
+    // Create deal
+    const deal = await Deal.create({
+      dealName,
+      stage: stage || 'Prospecting',
+      value,
+      expectedCloseDate,
+      contact,
+      account,
+      assignedTo: assignedTo || req.user._id,
+      description,
+      probability: probability || 50,
+      currency: currency || 'USD',
+    });
+
+    const populatedDeal = await Deal.findById(deal._id)
+      .populate('assignedTo', 'name email role')
+      .populate('contact', 'firstName lastName email')
+      .populate('account', 'name industry');
+
+    res.status(201).json({
+      success: true,
+      message: 'Deal created successfully',
+      data: populatedDeal,
+    });
   } catch (error) {
-    console.error("Update deal error:", error);
-    res.status(500).json({ message: "Server error updating deal" });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create deal',
+      error: error.message,
+    });
   }
 });
 
-// @route   DELETE /api/deals/:id
-// @desc    Delete a deal by ID
-// @access  Protected
-router.delete("/:id", protect, async (req, res) => {
+/**
+ * @route   PUT /api/deals/:id
+ * @desc    Update deal
+ * @access  Private - Executive+
+ */
+router.put('/:id', authenticate, requireExecutive, async (req, res) => {
   try {
-    // Find deal by ID and delete
-    const deal = await Deal.findByIdAndDelete(req.params.id);
+    const deal = await Deal.findById(req.params.id);
 
-    // If not found, return 404
     if (!deal) {
-      return res.status(404).json({ message: "Deal not found" });
+      return res.status(404).json({
+        success: false,
+        message: 'Deal not found',
+      });
     }
 
-    res.json({ message: "Deal deleted successfully" });
+    // Check access
+    if (
+      req.user.role === 'Sales Executive' &&
+      deal.assignedTo?.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+    }
+
+    // Update fields
+    const {
+      dealName,
+      stage,
+      value,
+      expectedCloseDate,
+      actualCloseDate,
+      contact,
+      account,
+      assignedTo,
+      description,
+      probability,
+      currency,
+    } = req.body;
+
+    if (dealName) deal.dealName = dealName;
+    if (stage) deal.stage = stage;
+    if (value !== undefined) deal.value = value;
+    if (expectedCloseDate) deal.expectedCloseDate = expectedCloseDate;
+    if (actualCloseDate !== undefined) deal.actualCloseDate = actualCloseDate;
+    if (contact !== undefined) deal.contact = contact;
+    if (account !== undefined) deal.account = account;
+    if (assignedTo) deal.assignedTo = assignedTo;
+    if (description !== undefined) deal.description = description;
+    if (probability !== undefined) deal.probability = probability;
+    if (currency) deal.currency = currency;
+
+    await deal.save();
+
+    const populatedDeal = await Deal.findById(deal._id)
+      .populate('assignedTo', 'name email role')
+      .populate('contact', 'firstName lastName email')
+      .populate('account', 'name industry');
+
+    res.json({
+      success: true,
+      message: 'Deal updated successfully',
+      data: populatedDeal,
+    });
   } catch (error) {
-    console.error("Delete deal error:", error);
-    res.status(500).json({ message: "Server error deleting deal" });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update deal',
+      error: error.message,
+    });
   }
 });
 
-// Export the router as default export
+/**
+ * @route   DELETE /api/deals/:id
+ * @desc    Delete deal
+ * @access  Private - Executive+ (Manager/Admin)
+ */
+router.delete('/:id', authenticate, requireExecutive, async (req, res) => {
+  try {
+    const deal = await Deal.findById(req.params.id);
+
+    if (!deal) {
+      return res.status(404).json({
+        success: false,
+        message: 'Deal not found',
+      });
+    }
+
+    // Only Manager/Admin can delete, or owner
+    const isManager = ['System Admin', 'Sales Manager'].includes(req.user.role);
+    const isOwner = deal.assignedTo?.toString() === req.user._id.toString();
+
+    if (!isManager && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only managers or deal owner can delete.',
+      });
+    }
+
+    await Deal.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Deal deleted successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete deal',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   GET /api/deals/pipeline/summary
+ * @desc    Get pipeline summary by stage
+ * @access  Private - Executive+
+ */
+router.get('/pipeline/summary', authenticate, requireExecutive, async (req, res) => {
+  try {
+    const filter = {};
+
+    // Sales Executives can only see their own deals
+    if (req.user.role === 'Sales Executive') {
+      filter.assignedTo = req.user._id;
+    }
+
+    const pipelineSummary = await Deal.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: '$stage',
+          count: { $sum: 1 },
+          totalValue: { $sum: '$value' },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    res.json({
+      success: true,
+      data: pipelineSummary,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch pipeline summary',
+      error: error.message,
+    });
+  }
+});
+
 export default router;
-

@@ -1,130 +1,187 @@
-// routes/authRoutes.js
-// Authentication routes for register and login
+/**
+ * Authentication Routes
+ * Handles user login, registration, and token management
+ */
 
-import express from "express"; // Import Express router
-import bcrypt from "bcryptjs"; // Import bcrypt for password hashing
-import jwt from "jsonwebtoken"; // Import JWT for token generation
-import User from "../models/User.js"; // Import User model
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
+import { authenticate } from '../middleware/authMiddleware.js';
 
-// Create an Express router instance
 const router = express.Router();
 
-// Helper function to generate JWT token from user ID
-const generateToken = (userId, role) => {
-  // Create a signed JWT with user id and role
-  return jwt.sign({ id: userId, role }, process.env.JWT_SECRET, {
-    expiresIn: "7d", // Token validity period
+/**
+ * Generate JWT token
+ * @param {string} userId - User ID
+ * @returns {string} JWT token
+ */
+const generateToken = (userId) => {
+  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+    expiresIn: '7d', // Token expires in 7 days
   });
 };
 
-// @route   POST /api/auth/register
-// @desc    Register a new user
-// @access  Public
-router.post("/register", async (req, res) => {
+/**
+ * @route   POST /api/auth/register
+ * @desc    Register a new user (Admin only in production)
+ * @access  Public (should be restricted in production)
+ */
+router.post('/register', async (req, res) => {
   try {
-    // Extract fields from request body
-    const { name, company, email, phone, source, role, password } = req.body;
+    const { name, email, password, phone, company, role } = req.body;
 
-    // Basic validation for required fields
-    if (!name || !company || !email || !phone || !source || !role || !password) {
-      return res.status(400).json({ message: "Please provide all fields" });
+    // Validation
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide name, email, and password',
+      });
     }
 
-    // Check if email already exists
+    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({
+        success: false,
+        message: 'User with this email already exists',
+      });
     }
 
-    // Hash password before saving
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create new user document
+    // Create user
     const user = await User.create({
       name,
-      company,
       email,
+      password,
       phone,
-      source,
-      role,
-      password: hashedPassword,
+      company,
+      role: role || 'Customer',
     });
 
-    // Generate JWT token for the newly created user
-    const token = generateToken(user._id, user.role);
+    // Generate token
+    const token = generateToken(user._id);
 
-    // Return user info (excluding password) and token
     res.status(201).json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        company: user.company,
-        email: user.email,
-        phone: user.phone,
-        source: user.source,
-        role: user.role,
+      success: true,
+      message: 'User registered successfully',
+      data: {
+        user,
+        token,
       },
     });
   } catch (error) {
-    console.error("Register error:", error);
-    res.status(500).json({ message: "Server error during registration" });
+    res.status(500).json({
+      success: false,
+      message: 'Registration failed',
+      error: error.message,
+    });
   }
 });
 
-// @route   POST /api/auth/login
-// @desc    Login user and return JWT
-// @access  Public
-router.post("/login", async (req, res) => {
+/**
+ * @route   POST /api/auth/login
+ * @desc    Login user and return JWT token
+ * @access  Public
+ */
+router.post('/login', async (req, res) => {
   try {
-    // Extract credentials from request body
-    const { email, password, role } = req.body;
+    const { email, password } = req.body;
 
-    // Ensure credentials are provided
+    // Validation
     if (!email || !password) {
-      return res.status(400).json({ message: "Please provide email and password" });
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and password',
+      });
     }
 
     // Find user by email
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+      });
     }
 
-    // Optionally ensure role matches (for separate login pages)
-    if (role && user.role !== role) {
-      return res.status(403).json({ message: "Role mismatch for this account" });
+    // Check if user is active
+    if (user.status !== 'Active') {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is inactive. Please contact administrator.',
+      });
     }
 
-    // Compare provided password with stored hash
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
+    // Verify password
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+      });
     }
 
-    // Generate JWT token
-    const token = generateToken(user._id, user.role);
+    // Generate token
+    const token = generateToken(user._id);
 
-    // Respond with token and user information
     res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        company: user.company,
-        email: user.email,
-        phone: user.phone,
-        source: user.source,
-        role: user.role,
+      success: true,
+      message: 'Login successful',
+      data: {
+        user,
+        token,
       },
     });
   } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ message: "Server error during login" });
+    res.status(500).json({
+      success: false,
+      message: 'Login failed',
+      error: error.message,
+    });
   }
 });
 
-// Export the router as default export
-export default router;
+/**
+ * @route   GET /api/auth/me
+ * @desc    Get current authenticated user
+ * @access  Private
+ */
+router.get('/me', authenticate, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        user: req.user,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get user data',
+      error: error.message,
+    });
+  }
+});
 
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Logout user (client-side token removal)
+ * @access  Private
+ */
+router.post('/logout', authenticate, async (req, res) => {
+  try {
+    // In a stateless JWT system, logout is handled client-side
+    // For enhanced security, you could implement token blacklisting here
+    res.json({
+      success: true,
+      message: 'Logout successful',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Logout failed',
+      error: error.message,
+    });
+  }
+});
+
+export default router;
