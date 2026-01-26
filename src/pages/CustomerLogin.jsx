@@ -1,41 +1,71 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { login } from "../auth/authService.js";
+/**
+ * Customer Login Page
+ * Login page for Customer and Executive users
+ */
 
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import authService from '../auth/authService';
 
-const CustomerLogin = () => {
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+const CustomerLogin = ({ setUser }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
   const navigate = useNavigate();
 
- 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
+
     try {
-     
-      await login({ email, password, role: "customer" });
-      
-      navigate("/dashboard");
+      const { user } = await authService.login(email, password);
+      setUser(user);
+      navigate('/dashboard');
     } catch (err) {
-      setError(err.message || "Unable to login");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <div className="auth-title">Customer Login</div>
-        <div className="auth-subtitle">Sign in to access your CRM portal.</div>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'var(--bg-color)',
+      }}
+    >
+      <div
+        className="card"
+        style={{
+          width: '100%',
+          maxWidth: '400px',
+          padding: '40px',
+        }}
+      >
+        <h1 style={{ textAlign: 'center', marginBottom: '10px' }}>Login</h1>
+        <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '30px' }}>
+          Customer & Executive Access
+        </p>
 
-        {error && <div className="error-banner">{error}</div>}
+        {error && (
+          <div
+            style={{
+              padding: '12px',
+              backgroundColor: '#fee2e2',
+              color: '#991b1b',
+              borderRadius: '6px',
+              marginBottom: '20px',
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -46,6 +76,7 @@ const CustomerLogin = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              placeholder="user@example.com"
             />
           </div>
 
@@ -57,32 +88,32 @@ const CustomerLogin = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              placeholder="Enter password"
             />
           </div>
 
-          <button className="btn btn-primary btn-full" type="submit" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ width: '100%', marginTop: '10px' }}
+            disabled={loading}
+          >
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
-        <p style={{ marginTop: "1rem" }} className="text-muted">
-          Manager?{" "}
-          <Link className="text-link" to="/manager-login">
-            Go to manager login
-          </Link>
-        </p>
-
-        <p className="text-muted">
-          New user?{" "}
-          <Link className="text-link" to="/create-account">
-            Create an account
-          </Link>
-        </p>
+        <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '14px' }}>
+          <a href="/create-account" style={{ color: 'var(--primary-color)', textDecoration: 'none' }}>
+            Create Account
+          </a>
+          {' | '}
+          <a href="/login" style={{ color: 'var(--primary-color)', textDecoration: 'none' }}>
+            Admin Login
+          </a>
+        </div>
       </div>
     </div>
   );
 };
 
-
 export default CustomerLogin;
-

@@ -1,13 +1,13 @@
 /**
- * Manager Login Page
- * Login page for Sales Manager users
+ * Admin Login Page
+ * Login page for System Admin users
  */
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../auth/authService';
 
-const ManagerLogin = ({ setUser }) => {
+const AdminLogin = ({ setUser }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,9 +22,9 @@ const ManagerLogin = ({ setUser }) => {
     try {
       const { user } = await authService.login(email, password);
 
-      // Check if user is Manager or Admin
-      if (!['System Admin', 'Sales Manager'].includes(user.role)) {
-        setError('Access denied. Manager login required.');
+      // Check if user is Admin
+      if (user.role !== 'System Admin') {
+        setError('Access denied. Admin login required.');
         authService.logout();
         return;
       }
@@ -56,9 +56,9 @@ const ManagerLogin = ({ setUser }) => {
           padding: '40px',
         }}
       >
-        <h1 style={{ textAlign: 'center', marginBottom: '10px' }}>Manager Login</h1>
+        <h1 style={{ textAlign: 'center', marginBottom: '10px' }}>Admin Login</h1>
         <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '30px' }}>
-          Sales Manager Access
+          System Administrator Access
         </p>
 
         {error && (
@@ -84,7 +84,7 @@ const ManagerLogin = ({ setUser }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="manager@example.com"
+              placeholder="admin@example.com"
             />
           </div>
 
@@ -111,12 +111,16 @@ const ManagerLogin = ({ setUser }) => {
         </form>
 
         <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '14px' }}>
-          <a href="/login" style={{ color: 'var(--primary-color)', textDecoration: 'none' }}>
-            Admin Login
+          <a href="/manager-login" style={{ color: 'var(--primary-color)', textDecoration: 'none' }}>
+            Manager Login
           </a>
           {' | '}
           <a href="/customer-login" style={{ color: 'var(--primary-color)', textDecoration: 'none' }}>
             Customer Login
+          </a>
+          {' | '}
+          <a href="/Create-Account" style={{ color: 'var(--primary-color)', textDecoration: 'none' }}>
+            Create Account
           </a>
         </div>
       </div>
@@ -124,4 +128,4 @@ const ManagerLogin = ({ setUser }) => {
   );
 };
 
-export default ManagerLogin;
+export default AdminLogin;

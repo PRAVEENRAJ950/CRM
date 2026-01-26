@@ -1,80 +1,95 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom"; 
-import { register } from "../auth/authService.js";
+/**
+ * Create Account Page
+ * Registration page for new users
+ */
 
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import authService from '../auth/authService';
 
 const CreateAccount = () => {
-
-  const [form, setForm] = useState({
-    name: "",
-    company: "",
-    email: "",
-    phone: "",
-    source: "",
-    role: "customer",
-    password: "",
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    company: '',
+    role: 'Customer',
   });
-
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
   const navigate = useNavigate();
 
-
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
   };
-
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
+
     try {
-      
-      await register(form);
-      
-      if (form.role === "manager" || form.role === "admin") {
-        navigate("/manager-login");
-      } else {
-        navigate("/customer-login");
-      }
+      await authService.register(formData);
+      navigate('/customer-login');
     } catch (err) {
-      setError(err.message || "Unable to create account");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <div className="auth-title">Create Account</div>
-        <div className="auth-subtitle">Set up access to your CRM workspace.</div>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'var(--bg-color)',
+      }}
+    >
+      <div
+        className="card"
+        style={{
+          width: '100%',
+          maxWidth: '500px',
+          padding: '40px',
+        }}
+      >
+        <h1 style={{ textAlign: 'center', marginBottom: '10px' }}>Create Account</h1>
+        <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '30px' }}>
+          Register for a new account
+        </p>
 
-        {error && <div className="error-banner">{error}</div>}
+        {error && (
+          <div
+            style={{
+              padding: '12px',
+              backgroundColor: '#fee2e2',
+              color: '#991b1b',
+              borderRadius: '6px',
+              marginBottom: '20px',
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Name</label>
+            <label className="form-label">Full Name</label>
             <input
+              type="text"
               name="name"
               className="form-input"
-              value={form.name}
+              value={formData.name}
               onChange={handleChange}
               required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Company</label>
-            <input
-              name="company"
-              className="form-input"
-              value={form.company}
-              onChange={handleChange}
-              required
+              placeholder="John Doe"
             />
           </div>
 
@@ -84,32 +99,34 @@ const CreateAccount = () => {
               type="email"
               name="email"
               className="form-input"
-              value={form.email}
+              value={formData.email}
               onChange={handleChange}
               required
+              placeholder="john@example.com"
             />
           </div>
 
           <div className="form-group">
             <label className="form-label">Phone</label>
             <input
+              type="tel"
               name="phone"
               className="form-input"
-              value={form.phone}
+              value={formData.phone}
               onChange={handleChange}
-              required
+              placeholder="+1234567890"
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Source</label>
+            <label className="form-label">Company Name</label>
             <input
-              name="source"
+              type="text"
+              name="company"
               className="form-input"
-              value={form.source}
+              value={formData.company}
               onChange={handleChange}
-              placeholder="Website, Referral, Campaign..."
-              required
+              placeholder="Your Company Name"
             />
           </div>
 
@@ -118,14 +135,20 @@ const CreateAccount = () => {
             <select
               name="role"
               className="form-select"
-              value={form.role}
+              value={formData.role}
               onChange={handleChange}
               required
             >
-              <option value="customer">Customer</option>
-              <option value="manager">Manager</option>
-              <option value="admin">Admin</option>
+              <option value="Customer">Customer</option>
+              <option value="Sales Executive">Sales Executive</option>
+              <option value="Marketing Executive">Marketing Executive</option>
+              <option value="Support Executive">Support Executive</option>
+              <option value="Sales Manager">Sales Manager</option>
+              <option value="System Admin">System Admin</option>
             </select>
+            <small style={{ color: 'var(--text-secondary)', fontSize: '12px', display: 'block', marginTop: '5px' }}>
+              Select your role in the organization
+            </small>
           </div>
 
           <div className="form-group">
@@ -134,28 +157,32 @@ const CreateAccount = () => {
               type="password"
               name="password"
               className="form-input"
-              value={form.password}
+              value={formData.password}
               onChange={handleChange}
               required
+              minLength={6}
+              placeholder="Minimum 6 characters"
             />
           </div>
 
-          <button className="btn btn-primary btn-full" type="submit" disabled={loading}>
-            {loading ? "Creating account..." : "Create account"}
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ width: '100%', marginTop: '10px' }}
+            disabled={loading}
+          >
+            {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
-        <p style={{ marginTop: "1rem" }} className="text-muted">
-          Already registered?{" "}
-          <Link className="text-link" to="/manager-login">
-            Sign in
-          </Link>
-        </p>
+        <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '14px' }}>
+          <a href="/customer-login" style={{ color: 'var(--primary-color)', textDecoration: 'none' }}>
+            Already have an account? Login
+          </a>
+        </div>
       </div>
     </div>
   );
 };
 
-
 export default CreateAccount;
-

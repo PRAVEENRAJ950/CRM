@@ -1,27 +1,29 @@
-import React from "react";
-import { Outlet } from "react-router-dom";
-import Sidebar from "./Sidebar.jsx";
-import Header from "./Header.jsx";
+/**
+ * Layout Component
+ * Main layout wrapper with Sidebar and Header
+ */
 
+import React from 'react';
+import Sidebar from './Sidebar';
+import Header from './Header';
 
-const Layout = () => {
+/**
+ * Layout Component
+ * @param {Object} props - Component props
+ * @param {Object} props.user - Current user object
+ * @param {Function} props.setUser - Function to update user state
+ * @param {React.ReactNode} props.children - Page content to render
+ */
+const Layout = ({ user, setUser, children }) => {
   return (
-    <div className="layout">
-      {/* Left navigation area */}
-      <Sidebar />
-
-      {/* Right side: header + page content */}
-      <div className="layout-main">
-        <Header />
-        <main className="layout-content">
-          {/* Nested routes will be rendered here */}
-          <Outlet />
-        </main>
+    <div className="app-container">
+      <Sidebar user={user} />
+      <div className="main-content">
+        <Header user={user} setUser={setUser} />
+        {children}
       </div>
     </div>
   );
 };
 
-
 export default Layout;
-

@@ -1,121 +1,153 @@
-const API_BASE_URL = "http://localhost:5000/api";
-const TOKEN_KEY = "crm_token";
+/**
+ * Authentication Service
+ * Handles API calls, JWT token management, and authentication state
+ */
 
-// Store JWT token in localStorage
-export const setToken = (token) => {
-  localStorage.setItem(TOKEN_KEY, token);
-};
+import axios from 'axios';
 
-// Retrieve JWT token from localStorage
-export const getToken = () => {
-  return localStorage.getItem(TOKEN_KEY);
-};
+// API base URL
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Remove JWT token from localStorage on logout
-export const clearToken = () => {
-  localStorage.removeItem(TOKEN_KEY);
-};
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-// Helper to build headers for authenticated requests
-export const authHeaders = () => {
-  const token = getToken();
-  return token
-    ? {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      }
-    : { "Content-Type": "application/json" };
-};
-
-// Perform login request for a given role (customer or manager)
-export const login = async ({ email, password, role }) => {
-  const res = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, role }),
-  });
-
-  if (!res.ok) {
-    // Try to extract error details
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Login failed");
+/**
+ * Add token to request headers
+ */
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
+);
 
-  const data = await res.json();
-  // Persist token locally
-  setToken(data.token);
-  return data;
-};
-
-// Perform registration request when creating an account
-export const register = async (payload) => {
-  const res = await fetch(`${API_BASE_URL}/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Registration failed");
+/**
+ * Handle 401 errors (unauthorized) - redirect to login
+ */
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Clear token and redirect to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
   }
+);
 
-  const data = await res.json();
-  setToken(data.token);
-  return data;
+/**
+ * Authentication Service
+ */
+const authService = {
+  /**
+   * Login user
+   * @param {string} email - User email
+   * @param {string} password - User password
+   * @returns {Promise<Object>} User data and token
+   */
+  async login(email, password) {
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      const { user, token } = response.data.data;
+
+      // Store token and user in localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      return { user, token };
+    } catch (error) {
+      throw new Error(
+        error.response?.data?.message || 'Login failed. Please try again.'
+      );
+    }
+  },
+
+  /**
+   * Register new user
+   * @param {Object} userData - User registration data
+   * @returns {Promise<Object>} User data and token
+   */
+  async register(userData) {
+    try {
+      const response = await api.post('/auth/register', userData);
+      const { user, token } = response.data.data;
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      return { user, token };
+    } catch (error) {
+      throw new Error(
+        error.response?.data?.message || 'Registration failed. Please try again.'
+      );
+    }
+  },
+
+  /**
+   * Get current authenticated user
+   * @returns {Promise<Object>} User data
+   */
+  async getCurrentUser() {
+    try {
+      const response = await api.get('/auth/me');
+      return response.data.data.user;
+    } catch (error) {
+      throw new Error(
+        error.response?.data?.message || 'Failed to get user data'
+      );
+    }
+  },
+
+  /**
+   * Logout user
+   * Removes token and user data from localStorage
+   */
+  logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  },
+
+  /**
+   * Check if user is authenticated
+   * @returns {boolean}
+   */
+  isAuthenticated() {
+    return !!localStorage.getItem('token');
+  },
+
+  /**
+   * Get stored user data
+   * @returns {Object|null}
+   */
+  getStoredUser() {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  },
+
+  /**
+   * Get stored token
+   * @returns {string|null}
+   */
+  getToken() {
+    return localStorage.getItem('token');
+  },
+  
 };
 
-// Generic helper for authenticated GET requests
-export const apiGet = async (path) => {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: "GET",
-    headers: authHeaders(),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Request failed");
-  }
-  return res.json();
-};
-
-// Generic helper for authenticated POST requests
-export const apiPost = async (path, body) => {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Request failed");
-  }
-  return res.json();
-};
-
-// Generic helper for authenticated PUT requests
-export const apiPut = async (path, body) => {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: "PUT",
-    headers: authHeaders(),
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Request failed");
-  }
-  return res.json();
-};
-
-// Generic helper for authenticated DELETE requests
-export const apiDelete = async (path) => {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: "DELETE",
-    headers: authHeaders(),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Request failed");
-  }
-  return res.json();
-};
-
+// Export API instance for use in other services
+export { api };
+export default authService;
