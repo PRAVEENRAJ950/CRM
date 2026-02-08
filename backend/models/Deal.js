@@ -76,3 +76,4 @@ dealSchema.index({ expectedCloseDate: 1 });
 const Deal = mongoose.model('Deal', dealSchema);
 
 export default Deal;
+

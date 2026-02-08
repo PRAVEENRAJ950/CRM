@@ -78,3 +78,4 @@ contactSchema.index({ organization: 1 });
 const Contact = mongoose.model('Contact', contactSchema);
 
 export default Contact;
+

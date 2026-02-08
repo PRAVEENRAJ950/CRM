@@ -8,6 +8,7 @@ import express from 'express';
 import User from '../models/User.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { requireAdmin, requireManager } from '../middleware/roleMiddleware.js';
+import { createAuditLog } from '../controllers/auditController.js';
 
 const router = express.Router();
 
@@ -117,6 +118,14 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
       message: 'User created successfully',
       data: user,
     });
+
+    await createAuditLog({
+      userId: req.user._id,
+      action: 'CREATE_USER',
+      module: 'User',
+      description: `Created user ${name} (${role})`,
+      metadata: { newUserId: user._id }
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -214,7 +223,14 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
 
     res.json({
       success: true,
-      message: 'User deleted successfully',
+    });
+
+    await createAuditLog({
+      userId: req.user._id,
+      action: 'DELETE_USER',
+      module: 'User',
+      description: `Deleted user ${user.name}`,
+      metadata: { deletedUserId: req.params.id }
     });
   } catch (error) {
     res.status(500).json({
@@ -226,3 +242,4 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
 });
 
 export default router;
+

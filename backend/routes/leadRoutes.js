@@ -107,7 +107,7 @@ router.get('/:id', authenticate, requireExecutive, async (req, res) => {
  */
 router.post('/', authenticate, requireExecutive, async (req, res) => {
   try {
-    const { name, company, email, phone, source, status, assignedTo, notes } =
+    const { name, company, email, phone, source, status, assignedTo, notes, campaignId } =
       req.body;
 
     // Validation
@@ -128,6 +128,8 @@ router.post('/', authenticate, requireExecutive, async (req, res) => {
       status: status || 'New',
       assignedTo: assignedTo || req.user._id, // Default to current user
       notes,
+      campaignId,
+      campaign: campaignId ? 'Campaign' : undefined, // Optional: Keep legacy field in sync if needed, or leave blank
     });
 
     const populatedLead = await Lead.findById(lead._id).populate(
@@ -177,7 +179,7 @@ router.put('/:id', authenticate, requireExecutive, async (req, res) => {
     }
 
     // Update fields
-    const { name, company, email, phone, source, status, assignedTo, notes } =
+    const { name, company, email, phone, source, status, assignedTo, notes, campaignId } =
       req.body;
 
     if (name) lead.name = name;
@@ -188,6 +190,10 @@ router.put('/:id', authenticate, requireExecutive, async (req, res) => {
     if (status) lead.status = status;
     if (assignedTo) lead.assignedTo = assignedTo;
     if (notes !== undefined) lead.notes = notes;
+    if (campaignId !== undefined) {
+      lead.campaignId = campaignId;
+      if (campaignId) lead.campaign = 'Campaign'; // Sync legacy field
+    }
 
     await lead.save();
 
@@ -291,3 +297,4 @@ router.post('/:id/convert', authenticate, requireExecutive, async (req, res) => 
 });
 
 export default router;
+

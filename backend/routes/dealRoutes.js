@@ -7,6 +7,8 @@ import express from 'express';
 import Deal from '../models/Deal.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { requireExecutive } from '../middleware/roleMiddleware.js';
+import { createAuditLog } from '../controllers/auditController.js';
+import { createNotification } from '../controllers/notificationController.js';
 
 const router = express.Router();
 
@@ -147,6 +149,14 @@ router.post('/', authenticate, requireExecutive, async (req, res) => {
       .populate('contact', 'firstName lastName email')
       .populate('account', 'name industry');
 
+    await createAuditLog({
+      userId: req.user._id,
+      action: 'CREATE',
+      module: 'Deal',
+      description: `Created deal "${dealName}" (Value: ${value})`,
+      ipAddress: req.ip
+    });
+
     res.status(201).json({
       success: true,
       message: 'Deal created successfully',
@@ -222,6 +232,23 @@ router.put('/:id', authenticate, requireExecutive, async (req, res) => {
       .populate('contact', 'firstName lastName email')
       .populate('account', 'name industry');
 
+    await createAuditLog({
+      userId: req.user._id,
+      action: 'UPDATE',
+      module: 'Deal',
+      description: `Updated deal "${deal.dealName}"`,
+      ipAddress: req.ip
+    });
+
+    // Notify if stage changed
+    if (stage && stage !== deal.stage) {
+      await createNotification(
+        deal.assignedTo._id || deal.assignedTo, // Handle populated or unpopulated
+        `Deal "${deal.dealName}" moved to stage "${stage}"`,
+        'system'
+      );
+    }
+
     res.json({
       success: true,
       message: 'Deal updated successfully',
@@ -264,6 +291,14 @@ router.delete('/:id', authenticate, requireExecutive, async (req, res) => {
     }
 
     await Deal.findByIdAndDelete(req.params.id);
+
+    await createAuditLog({
+      userId: req.user._id,
+      action: 'DELETE',
+      module: 'Deal',
+      description: `Deleted deal "${deal.dealName}"`,
+      ipAddress: req.ip
+    });
 
     res.json({
       success: true,
@@ -318,3 +353,4 @@ router.get('/pipeline/summary', authenticate, requireExecutive, async (req, res)
 });
 
 export default router;
+

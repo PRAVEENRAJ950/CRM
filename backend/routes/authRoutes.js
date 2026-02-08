@@ -7,6 +7,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { authenticate } from '../middleware/authMiddleware.js';
+import { createAuditLog } from '../controllers/auditController.js';
 
 const router = express.Router();
 
@@ -30,7 +31,6 @@ router.post('/register', async (req, res) => {
   try {
     const { name, email, password, phone, company, role } = req.body;
 
-    // Validation
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -38,7 +38,6 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
@@ -47,7 +46,6 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Create user
     const user = await User.create({
       name,
       email,
@@ -57,7 +55,6 @@ router.post('/register', async (req, res) => {
       role: role || 'Customer',
     });
 
-    // Generate token
     const token = generateToken(user._id);
 
     res.status(201).json({
@@ -86,7 +83,6 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -94,7 +90,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Find user by email
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({
@@ -103,15 +98,13 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check if user is active
-    if (user.status !== 'Active') {
+    if (user.status && user.status !== 'Active') {
       return res.status(403).json({
         success: false,
         message: 'Account is inactive. Please contact administrator.',
       });
     }
 
-    // Verify password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -120,7 +113,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Generate token
     const token = generateToken(user._id);
 
     res.json({
@@ -169,11 +161,17 @@ router.get('/me', authenticate, async (req, res) => {
  */
 router.post('/logout', authenticate, async (req, res) => {
   try {
-    // In a stateless JWT system, logout is handled client-side
-    // For enhanced security, you could implement token blacklisting here
     res.json({
       success: true,
       message: 'Logout successful',
+    });
+
+    await createAuditLog({
+      userId: req.user._id,
+      action: 'LOGOUT',
+      module: 'Auth',
+      description: `User ${req.user.email} logged out`,
+      ipAddress: req.ip
     });
   } catch (error) {
     res.status(500).json({
@@ -185,3 +183,4 @@ router.post('/logout', authenticate, async (req, res) => {
 });
 
 export default router;
+

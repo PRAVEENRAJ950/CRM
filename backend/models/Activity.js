@@ -36,6 +36,10 @@ const activitySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
     // Related entities
     relatedTo: {
       type: String,
@@ -77,3 +81,4 @@ activitySchema.index({ organization: 1 });
 const Activity = mongoose.model('Activity', activitySchema);
 
 export default Activity;
+

@@ -1,0 +1,307 @@
+import Lead from '../models/Lead.js';
+import Deal from '../models/Deal.js';
+import Activity from '../models/Activity.js';
+import PDFDocument from 'pdfkit';
+import ExcelJS from 'exceljs';
+
+/**
+ * @desc    Get sales performance report
+ * @route   GET /api/reports/sales-performance
+ * @access  Private - Admin/Manager
+ */
+export const getSalesPerformance = async (req, res) => {
+    try {
+        // Aggregate deals by Sales Executive
+        const performance = await Deal.aggregate([
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'assignedTo',
+                    foreignField: '_id',
+                    as: 'assignedUser'
+                }
+            },
+            { $unwind: '$assignedUser' },
+            {
+                $group: {
+                    _id: '$assignedTo',
+                    userName: { $first: '$assignedUser.name' },
+                    totalDeals: { $sum: 1 },
+                    totalValue: { $sum: '$value' },
+                    wonDeals: { $sum: { $cond: [{ $eq: ['$stage', 'Closed Won'] }, 1, 0] } },
+                    wonValue: { $sum: { $cond: [{ $eq: ['$stage', 'Closed Won'] }, '$value', 0] } },
+                }
+            },
+            {
+                $addFields: {
+                    winRate: {
+                        $cond: [
+                            { $eq: ['$totalDeals', 0] },
+                            0,
+                            { $multiply: [{ $divide: ['$wonDeals', '$totalDeals'] }, 100] }
+                        ]
+                    }
+                }
+            },
+            { $sort: { wonValue: -1 } }
+        ]);
+
+        res.json({ success: true, data: performance });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+/**
+ * @desc    Get lead conversion report
+ * @route   GET /api/reports/lead-conversion
+ * @access  Private - Admin/Manager
+ */
+export const getLeadConversion = async (req, res) => {
+    try {
+        const conversion = await Lead.aggregate([
+            {
+                $group: {
+                    _id: '$source',
+                    totalLeads: { $sum: 1 },
+                    newLeads: { $sum: { $cond: [{ $eq: ['$status', 'New'] }, 1, 0] } },
+                    qualifiedLeads: { $sum: { $cond: [{ $eq: ['$status', 'Qualified'] }, 1, 0] } },
+                    convertedLeads: { $sum: { $cond: [{ $eq: ['$status', 'Converted'] }, 1, 0] } }
+                }
+            },
+            {
+                $addFields: {
+                    source: '$_id',
+                    conversionRate: {
+                        $cond: [
+                            { $eq: ['$totalLeads', 0] },
+                            0,
+                            { $multiply: [{ $divide: ['$convertedLeads', '$totalLeads'] }, 100] }
+                        ]
+                    }
+                }
+            },
+            { $sort: { totalLeads: -1 } }
+        ]);
+
+        res.json({ success: true, data: conversion });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+/**
+ * @desc    Get deal pipeline report
+ * @route   GET /api/reports/deal-pipeline
+ * @access  Private - Admin/Manager
+ */
+export const getDealPipeline = async (req, res) => {
+    try {
+        const stages = await Deal.aggregate([
+            {
+                $group: {
+                    _id: '$stage',
+                    count: { $sum: 1 },
+                    totalValue: { $sum: '$value' },
+                    avgValue: { $avg: '$value' }
+                }
+            },
+            { $sort: { totalValue: -1 } }
+        ]);
+
+        const summary = await Deal.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalValue: { $sum: '$value' },
+                    openValue: { $sum: { $cond: [{ $in: ['$stage', ['Prospecting', 'Negotiation', 'Proposal']] }, '$value', 0] } },
+                    closedWonValue: { $sum: { $cond: [{ $eq: ['$stage', 'Closed Won'] }, '$value', 0] } }
+                }
+            }
+        ]);
+
+        res.json({ success: true, data: { stages, summary: summary[0] || {} } });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+/**
+ * @desc    Export reports as PDF
+ * @route   GET /api/reports/export/pdf
+ * @access  Private - Admin/Manager
+ */
+export const exportReportPDF = async (req, res) => {
+    try {
+        const doc = new PDFDocument();
+
+        // Set response headers
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=crm-report.pdf');
+
+        doc.pipe(res);
+
+        // Title
+        doc.fontSize(25).text('CRM Analytics Report', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).text(`Generated by: ${req.user.name}`);
+        doc.text(`Date: ${new Date().toLocaleDateString()}`);
+        doc.moveDown();
+
+        // Fetch Data
+        const totalLeads = await Lead.countDocuments();
+        const newLeads = await Lead.countDocuments({ status: 'New' });
+        const totalDeals = await Deal.countDocuments();
+        const dealsValue = await Deal.aggregate([{ $group: { _id: null, total: { $sum: '$value' } } }]);
+
+        // Section: Overview
+        doc.fontSize(18).text('Overview', { underline: true });
+        doc.moveDown(0.5);
+        doc.fontSize(12).text(`Total Leads: ${totalLeads}`);
+        doc.text(`New Leads: ${newLeads}`);
+        doc.text(`Total Deals: ${totalDeals}`);
+        doc.text(`Total Deal Value: $${dealsValue[0]?.total?.toLocaleString() || 0}`);
+        doc.moveDown();
+
+        // Section: Pipeline
+        const pipeline = await Deal.aggregate([
+            { $group: { _id: '$stage', count: { $sum: 1 }, value: { $sum: '$value' } } }
+        ]);
+
+        doc.fontSize(18).text('Deal Pipeline', { underline: true });
+        doc.moveDown(0.5);
+        pipeline.forEach(stage => {
+            doc.text(`${stage._id}: ${stage.count} deals ($${stage.value.toLocaleString()})`);
+        });
+
+        // Finalize
+        doc.end();
+
+    } catch (error) {
+        console.error('PDF Export Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to generate PDF' });
+    }
+};
+
+/**
+ * @desc    Get campaign performance report
+ * @route   GET /api/reports/campaign-performance
+ * @access  Private - Admin/Manager
+ */
+export const getCampaignPerformance = async (req, res) => {
+    try {
+        // Aggregate leads by Campaign ID (lookup Campaign name)
+        const campaignStats = await Lead.aggregate([
+            {
+                $match: { campaignId: { $ne: null } } // Only leads with campaignId
+            },
+            {
+                $lookup: {
+                    from: 'campaigns',
+                    localField: 'campaignId',
+                    foreignField: '_id',
+                    as: 'campaignInfo'
+                }
+            },
+            { $unwind: '$campaignInfo' },
+            {
+                $group: {
+                    _id: '$campaignId',
+                    campaignName: { $first: '$campaignInfo.name' },
+                    totalLeads: { $sum: 1 },
+                    convertedLeads: { $sum: { $cond: [{ $or: ['$convertedToContact', '$convertedToDeal'] }, 1, 0] } },
+                    revenue: { $sum: 0 } // Placeholder: Would need deep link to Deal value
+                }
+            },
+            {
+                $addFields: {
+                    conversionRate: {
+                        $cond: [
+                            { $eq: ['$totalLeads', 0] },
+                            0,
+                            { $multiply: [{ $divide: ['$convertedLeads', '$totalLeads'] }, 100] }
+                        ]
+                    }
+                }
+            },
+            { $sort: { totalLeads: -1 } }
+        ]);
+
+        res.json({ success: true, data: campaignStats });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+/**
+ * @desc    Export reports as Excel
+ * @route   GET /api/reports/export/excel
+ * @access  Private - Admin/Manager
+ */
+export const exportReportExcel = async (req, res) => {
+    try {
+        const workbook = new ExcelJS.Workbook();
+
+        // Sheet 1: Sales Performance
+        const salesSheet = workbook.addWorksheet('Sales Performance');
+        salesSheet.columns = [
+            { header: 'User', key: 'userName', width: 20 },
+            { header: 'Total Deals', key: 'totalDeals', width: 15 },
+            { header: 'Total Value', key: 'totalValue', width: 15 },
+            { header: 'Won Deals', key: 'wonDeals', width: 15 },
+            { header: 'Won Value', key: 'wonValue', width: 15 }
+        ];
+
+        const salesData = await Deal.aggregate([
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'assignedTo',
+                    foreignField: '_id',
+                    as: 'assignedUser'
+                }
+            },
+            { $unwind: '$assignedUser' },
+            {
+                $group: {
+                    _id: '$assignedTo',
+                    userName: { $first: '$assignedUser.name' },
+                    totalDeals: { $sum: 1 },
+                    totalValue: { $sum: '$value' },
+                    wonDeals: { $sum: { $cond: [{ $eq: ['$stage', 'Closed Won'] }, 1, 0] } },
+                    wonValue: { $sum: { $cond: [{ $eq: ['$stage', 'Closed Won'] }, '$value', 0] } }
+                }
+            }
+        ]);
+        salesSheet.addRows(salesData);
+
+        // Sheet 2: Leads
+        const leadSheet = workbook.addWorksheet('Leads Summary');
+        leadSheet.columns = [
+            { header: 'Source', key: '_id', width: 20 },
+            { header: 'Total Leads', key: 'totalLeads', width: 15 },
+            { header: 'Converted', key: 'convertedLeads', width: 15 }
+        ];
+        const leadData = await Lead.aggregate([
+            {
+                $group: {
+                    _id: '$source',
+                    totalLeads: { $sum: 1 },
+                    convertedLeads: { $sum: { $cond: [{ $eq: ['$status', 'Converted'] }, 1, 0] } }
+                }
+            }
+        ]);
+        leadSheet.addRows(leadData);
+
+        // Response
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=crm-report.xlsx');
+
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (error) {
+        console.error('Excel Export Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to generate Excel' });
+    }
+};

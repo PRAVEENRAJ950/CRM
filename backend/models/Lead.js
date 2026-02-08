@@ -47,6 +47,10 @@ const leadSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    campaignId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Campaign',
+    },
     // Notes and additional info
     notes: {
       type: String,
@@ -80,3 +84,4 @@ leadSchema.index({ organization: 1 });
 const Lead = mongoose.model('Lead', leadSchema);
 
 export default Lead;
+

@@ -43,6 +43,7 @@ router.get('/', authenticate, requireExecutive, async (req, res) => {
 
     const activities = await Activity.find(filter)
       .populate('assignedTo', 'name email role')
+      .populate('createdBy', 'name email role')
       .sort({ dueDate: 1, createdAt: -1 });
 
     res.json({
@@ -66,10 +67,9 @@ router.get('/', authenticate, requireExecutive, async (req, res) => {
  */
 router.get('/:id', authenticate, requireExecutive, async (req, res) => {
   try {
-    const activity = await Activity.findById(req.params.id).populate(
-      'assignedTo',
-      'name email role'
-    );
+    const activity = await Activity.findById(req.params.id)
+      .populate('assignedTo', 'name email role')
+      .populate('createdBy', 'name email role');
 
     if (!activity) {
       return res.status(404).json({
@@ -138,16 +138,16 @@ router.post('/', authenticate, requireExecutive, async (req, res) => {
       dueDate,
       status: status || 'Pending',
       assignedTo: assignedTo || req.user._id,
+      createdBy: req.user._id,
       relatedTo: relatedTo || 'None',
       relatedId,
       priority: priority || 'Medium',
       reminder: reminder || { enabled: false },
     });
 
-    const populatedActivity = await Activity.findById(activity._id).populate(
-      'assignedTo',
-      'name email role'
-    );
+    const populatedActivity = await Activity.findById(activity._id)
+      .populate('assignedTo', 'name email role')
+      .populate('createdBy', 'name email role');
 
     res.status(201).json({
       success: true,
@@ -219,10 +219,9 @@ router.put('/:id', authenticate, requireExecutive, async (req, res) => {
 
     await activity.save();
 
-    const populatedActivity = await Activity.findById(activity._id).populate(
-      'assignedTo',
-      'name email role'
-    );
+    const populatedActivity = await Activity.findById(activity._id)
+      .populate('assignedTo', 'name email role')
+      .populate('createdBy', 'name email role');
 
     res.json({
       success: true,
@@ -300,6 +299,7 @@ router.get('/upcoming/reminders', authenticate, requireExecutive, async (req, re
 
     const activities = await Activity.find(filter)
       .populate('assignedTo', 'name email role')
+      .populate('createdBy', 'name email role')
       .sort({ reminderDate: 1 });
 
     res.json({
@@ -317,3 +317,4 @@ router.get('/upcoming/reminders', authenticate, requireExecutive, async (req, re
 });
 
 export default router;
+

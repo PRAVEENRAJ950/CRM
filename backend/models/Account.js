@@ -80,3 +80,4 @@ accountSchema.index({ organization: 1 });
 const Account = mongoose.model('Account', accountSchema);
 
 export default Account;
+

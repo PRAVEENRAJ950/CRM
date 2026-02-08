@@ -55,6 +55,11 @@ export const requireExecutive = requireRole(
 );
 
 /**
+ * Middleware to check if user is Marketing or Admin
+ */
+export const requireMarketing = requireRole('System Admin', 'Marketing Executive');
+
+/**
  * Middleware to check if user can write (not Customer)
  * Customers have read-only access
  */
@@ -105,3 +110,4 @@ export const requireOwnershipOrAdmin = (getResourceOwnerId) => {
     });
   };
 };
+
